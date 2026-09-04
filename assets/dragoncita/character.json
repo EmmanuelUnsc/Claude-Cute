@@ -1,0 +1,20 @@
+{
+  "name": "Dragoncita",
+  "author": "Emmanuel Unsc",
+  "scale": 2,
+  "ms_per_frame": {
+    "idle": 220,
+    "idle-sleep": 320,
+    "thinking": 120,
+    "working": 100,
+    "waiting": 140,
+    "done": 160,
+    "error": 110,
+    "wake": 150,
+    "sleep": 200,
+    "compacting": 130
+  },
+  "loop_from": {
+    "dragged": 6
+  }
+}

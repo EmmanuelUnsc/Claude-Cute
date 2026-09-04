@@ -1,0 +1,5 @@
+# The upper bound is not fear of the unknown: this gets distributed, and a
+# PySide6 7.x that changes how `Qt.Tool` or hit-testing behave would break the
+# install of whoever clones the repository six months from now, with no way for
+# them to know why. Raise it deliberately, after trying it.
+PySide6>=6.7,<7

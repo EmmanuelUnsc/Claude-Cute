@@ -1,0 +1,29 @@
+{
+  "name": "claude-cute",
+  "displayName": "Claude Cute",
+  "description": "A pixel-art dragon on your desktop that mirrors what your Claude Code session is doing, in real time.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Emmanuel Unsc",
+    "url": "https://github.com/EmmanuelUnsc"
+  },
+  "repository": "https://github.com/EmmanuelUnsc/Claude-Cute",
+  "homepage": "https://github.com/EmmanuelUnsc/Claude-Cute",
+  "license": "MIT",
+  "keywords": [
+    "avatar",
+    "desktop",
+    "widget",
+    "status",
+    "pixel-art"
+  ],
+  "userConfig": {
+    "python": {
+      "type": "string",
+      "title": "Python command",
+      "description": "How Python 3 is started on this machine. Leave python3 on Linux and macOS; on Windows use py, or python if that is what works in your terminal. The widget needs Python and PySide6, which it fetches once on first use.",
+      "default": "python3",
+      "required": true
+    }
+  }
+}

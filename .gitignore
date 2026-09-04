@@ -1,0 +1,14 @@
+# The widget writes this at runtime and it holds the screen coordinates of
+# whoever ran it. It regenerates itself with defaults on the first launch.
+config.json
+
+# Python bytecode. It has already carried .pyc files of modules deleted long
+# before, which is exactly what makes a reviewer ask what the plugin measures.
+__pycache__/
+*.py[cod]
+
+# Packaging output
+build/
+dist/
+*.spec
+.launching

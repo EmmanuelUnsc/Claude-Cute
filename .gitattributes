@@ -1,0 +1,12 @@
+# Text files are stored with LF in the repository and checked out however the
+# platform prefers. The two launchers are the exception: each one is only ever
+# run by one shell, and the wrong line endings break them.
+* text=auto
+
+*.bat text eol=crlf
+*.sh  text eol=lf
+
+# Sprites and the demo: never touched.
+*.png binary
+*.gif binary
+*.ico binary

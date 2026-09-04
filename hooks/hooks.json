@@ -1,0 +1,278 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/launch.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          },
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/launch.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${user_config.python}",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
+            ],
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

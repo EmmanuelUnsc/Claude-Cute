@@ -1,0 +1,17 @@
+{
+  "name": "claude-cute",
+  "owner": {
+    "name": "Emmanuel Unsc",
+    "url": "https://github.com/EmmanuelUnsc"
+  },
+  "description": "Claude Cute: a desktop avatar that mirrors your Claude Code session.",
+  "plugins": [
+    {
+      "name": "claude-cute",
+      "source": "./",
+      "description": "A pixel-art dragon on your desktop that reacts to what Claude Code is doing.",
+      "category": "productivity",
+      "repository": "https://github.com/EmmanuelUnsc/Claude-Cute"
+    }
+  ]
+}
