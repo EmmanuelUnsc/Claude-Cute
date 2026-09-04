@@ -1,4 +1,5 @@
 {
+  "description": "Reports every session event to the widget so the dragon mirrors what Claude Code is doing, and starts it if it is not up.",
   "hooks": {
     "PreToolUse": [
       {
@@ -6,10 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -21,10 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -36,10 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -51,10 +43,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -66,10 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -81,10 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -95,18 +78,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           },
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/launch.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.py\"",
             "async": true
           }
         ]
@@ -117,18 +94,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           },
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/launch.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/launch.py\"",
             "async": true
           }
         ]
@@ -139,10 +110,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -153,10 +121,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -167,10 +132,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -181,10 +143,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -195,10 +154,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -209,10 +165,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -223,10 +176,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -237,10 +187,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -251,10 +198,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]
@@ -265,10 +209,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${user_config.python}",
-            "args": [
-              "${CLAUDE_PLUGIN_ROOT}/hooks/notify.py"
-            ],
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cute-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.py\"",
             "async": true
           }
         ]

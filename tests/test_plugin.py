@@ -9,6 +9,7 @@ The cost of that drift is a dragon that stops reacting, silently.
 from __future__ import annotations
 
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -17,6 +18,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from src import states as st  # noqa: E402
+
+# What every hook command has to look like. Anything else is a mistake we want
+# to hear about at test time rather than from a user whose dragon sits still.
+COMMAND = re.compile(
+    r'^bash "\$\{CLAUDE_PLUGIN_ROOT\}/hooks/cute-python\.sh" '
+    r'"\$\{CLAUDE_PLUGIN_ROOT\}/hooks/(\w+\.py)"$'
+)
 
 
 def _load(*parts: str) -> dict:
@@ -33,6 +41,12 @@ class TestHooksManifest(unittest.TestCase):
                 for hook in group["hooks"]:
                     yield event, hook
 
+    def script(self, hook: dict) -> str:
+        """The Python file a hook ends up running."""
+        found = COMMAND.match(hook["command"])
+        self.assertIsNotNone(found, hook["command"])
+        return found.group(1)
+
     def test_it_listens_for_exactly_what_the_widget_understands(self):
         # Both directions matter. An event the widget ignores is a hook process
         # spawned for nothing on Claude Code's critical path; an event the
@@ -45,10 +59,7 @@ class TestHooksManifest(unittest.TestCase):
         # folder moved. This is what replaces it.
         for event, hook in self.entries():
             with self.subTest(event=event):
-                target = hook["args"][0]
-                self.assertTrue(
-                    target.startswith("${CLAUDE_PLUGIN_ROOT}/hooks/"), target)
-                name = target.rsplit("/", 1)[-1]
+                name = self.script(hook)
                 self.assertTrue((ROOT / "hooks" / name).is_file(), name)
 
     def test_every_event_tells_the_widget_what_happened(self):
@@ -56,8 +67,7 @@ class TestHooksManifest(unittest.TestCase):
         # the only thing that moves the dragon.
         for event, groups in self.hooks.items():
             with self.subTest(event=event):
-                scripts = [h["args"][0].rsplit("/", 1)[-1]
-                           for g in groups for h in g["hooks"]]
+                scripts = [self.script(h) for g in groups for h in g["hooks"]]
                 self.assertIn("notify.py", scripts)
 
     def test_the_launcher_runs_when_a_session_opens_and_when_you_write(self):
@@ -73,20 +83,58 @@ class TestHooksManifest(unittest.TestCase):
         single thing Claude does would buy nothing.
         """
         launching = sorted(event for event, hook in self.entries()
-                           if hook["args"][0].endswith("launch.py"))
+                           if self.script(hook) == "launch.py")
         self.assertEqual(launching, ["SessionStart", "UserPromptSubmit"])
 
-    def test_every_hook_uses_the_exec_form(self):
-        """No shell, on any platform.
+    def test_every_hook_goes_through_the_interpreter_shim(self):
+        """Nothing names a Python directly, and nothing asks the user for one.
 
-        The shell form runs under `sh` on Linux and macOS but under Git Bash on
-        Windows — or PowerShell when Git Bash is not installed, which cannot
-        parse the same commands. The exec form has no shell at all.
+        Naming one is what broke this before. `python3` is the Microsoft Store
+        stub on Windows — on the PATH, exits 49, runs nothing — and asking the
+        user instead let them press Esc and install a plugin whose eighteen
+        hooks Claude Code then refuses to run, two error lines per tool call.
+        `cute-python.sh` is the single place allowed to decide, and it probes
+        every candidate before trusting it.
         """
         for event, hook in self.entries():
             with self.subTest(event=event):
-                self.assertIn("args", hook)
-                self.assertNotIn(" ", hook["command"])
+                self.assertRegex(hook["command"], COMMAND)
+
+    def test_the_shim_is_shipped_and_starts_with_a_shebang(self):
+        shim = ROOT / "hooks" / "cute-python.sh"
+        self.assertTrue(shim.is_file())
+        first = shim.read_text(encoding="utf-8").splitlines()[0]
+        self.assertTrue(first.startswith("#!"), first)
+
+    def test_the_shim_keeps_its_windows_defences(self):
+        """Three bugs that cost somebody else a debugging session each.
+
+        They are invisible in the happy path and each one produces a dragon
+        that never appears, so a well-meaning cleanup would take them out
+        without noticing. `PYTHONUTF8` stops cp1252 from breaking any path with
+        a non-Latin byte; `cygpath` stops Git Bash's `/c/Users/...` from
+        reaching a native `python.exe`, which reads it as the root of the
+        current drive; and probing the version is what unmasks the Store stub.
+        """
+        text = (ROOT / "hooks" / "cute-python.sh").read_text(encoding="utf-8")
+        self.assertIn("PYTHONUTF8=1", text)
+        self.assertIn("cygpath", text)
+        self.assertIn("sys.version_info", text)
+
+    def test_the_shim_never_writes_to_the_console(self):
+        """Silence is the feature.
+
+        Eighteen hooks fire on every tool call, so one line on stderr is two
+        lines of noise per call, forever. Every failure path exits 0 and leaves
+        its reasons in a file the doctor reads on request.
+        """
+        text = (ROOT / "hooks" / "cute-python.sh").read_text(encoding="utf-8")
+        body = [line for line in text.splitlines()
+                if line.strip() and not line.lstrip().startswith("#")]
+        for line in body:
+            self.assertNotIn("echo ", line)
+            self.assertNotIn(">&2", line)
+        self.assertNotIn("exit 1", text)
 
     def test_every_hook_is_asynchronous(self):
         # The one thing that must never happen is holding up a turn.
@@ -95,7 +143,7 @@ class TestHooksManifest(unittest.TestCase):
                 self.assertTrue(hook.get("async"))
 
     def test_the_scripts_it_points_at_exist(self):
-        for name in ("notify.py", "launch.py"):
+        for name in ("notify.py", "launch.py", "cute-python.sh"):
             self.assertTrue((ROOT / "hooks" / name).is_file(), name)
 
 
@@ -112,24 +160,21 @@ class TestPluginManifest(unittest.TestCase):
         self.assertTrue((ROOT / "hooks" / "hooks.json").is_file())
         self.assertNotIn("hooks", _load(".claude-plugin", "plugin.json"))
 
-    def test_the_interpreter_is_asked_for_once_and_has_a_default(self):
-        # One question at install, with an answer already filled in, is the
-        # closest this can get to no question at all while still working on a
-        # machine where Python is called something else.
-        option = _load(".claude-plugin", "plugin.json")["userConfig"]["python"]
-        self.assertEqual(option["type"], "string")
-        self.assertTrue(option["default"])
+    def test_installing_asks_the_user_nothing(self):
+        """Regression, and the reason this release exists.
 
-    def test_the_hooks_use_the_interpreter_that_was_asked_for(self):
-        plugin = _load(".claude-plugin", "plugin.json")
-        declared = set(plugin["userConfig"])
-        hooks = _load("hooks", "hooks.json")["hooks"]
-        for groups in hooks.values():
-            for group in groups:
-                for hook in group["hooks"]:
-                    key = hook["command"].removeprefix(
-                        "${user_config.").removesuffix("}")
-                    self.assertIn(key, declared)
+        1.0.0 declared a `userConfig` option for the Python command. Pressing
+        Esc on that question installed the plugin anyway, left `pluginConfigs`
+        empty in `settings.json`, and Claude Code then refused to run all
+        eighteen hooks — printing an error per hook per event in the terminal,
+        and nothing at all in the desktop app, which does not surface hook
+        errors. Answering it was no better: the offered default, `python3`, is
+        the Microsoft Store stub on Windows.
+
+        No official Anthropic plugin declares `userConfig`. Neither does this
+        one any more; `cute-python.sh` works it out instead.
+        """
+        self.assertNotIn("userConfig", _load(".claude-plugin", "plugin.json"))
 
     def test_the_marketplace_points_at_this_repository(self):
         market = _load(".claude-plugin", "marketplace.json")

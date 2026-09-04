@@ -1,10 +1,16 @@
-"""Registers the hooks by hand, for the Claude desktop app.
+"""Registers the hooks by hand, for machines the plugin cannot reach.
 
-The plugin is the normal way in, and in a terminal or an IDE it covers
-everything. The desktop app does not reliably run the hooks a plugin declares
-(claude-code#34573), so there the dragon neither starts nor reacts. Running
-this once registers the same hooks in `~/.claude/settings.json`, which the
-desktop app does run.
+The plugin is the normal way in and covers almost everyone. Its hooks are
+written in shell form and start with `bash`, because that is the only form in
+which `cute-python.sh` can go looking for a working interpreter instead of
+making the user name one. On Windows, Claude Code uses Git Bash when Git for
+Windows is installed and PowerShell when it is not — and Git for Windows is
+optional. So on a Windows machine without it, the hooks find no `bash`, run
+nothing, and say nothing.
+
+This is the way out for that machine. It registers the same hooks in
+`~/.claude/settings.json` in exec form: no shell at all, and a direct path to
+the interpreter running this script — one we know works, because it is running.
 
     py install.py          register
     py uninstall.py        undo it
@@ -26,8 +32,7 @@ from pathlib import Path
 
 SETTINGS = Path.home() / ".claude" / "settings.json"
 
-# The events that tell the widget what is happening. A plugin's `hooks.json`
-# fails to deliver these in the desktop app.
+# The events that tell the widget what is happening.
 EVENTS = (
     "PreToolUse",
     "PostToolUse",

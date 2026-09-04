@@ -55,52 +55,78 @@ Also:
 |---|---|
 | Windows | ✅ used daily |
 | Claude Code in a terminal or an IDE | ✅ everything works |
-| The Claude desktop app | ⚠️ needs one extra step — see [In the desktop app](#in-the-desktop-app) |
+| The Claude desktop app | ✅ everything works — but it [hides hook errors](#if-the-dragon-does-not-show-up) |
+| Windows without Git for Windows | ⚠️ the plugin's hooks need `bash` — [there is a way round it](#if-the-dragon-does-not-show-up) |
 | Linux with X11 | ⚠️ **written for it, never run on it.** Nothing in the code touches Windows-only APIs and the launcher is there, but nobody has started this on a Linux desktop yet. Reports welcome |
 | Linux with Wayland | ⬜ the dragon shows up and reacts, but **cannot be moved**: Wayland does not let a window place itself. Planned after the first release |
 | macOS | ⬜ planned after the first release |
 
-### Installation
+### Installing it
 
-From a terminal, in the project folder:
-
-```bash
-py -3 -m pip install -r requirements.txt
+```
+/plugin marketplace add EmmanuelUnsc/Claude-Cute
+/plugin install claude-cute
 ```
 
-On Linux:
+Two commands, and that is the whole thing. No clone, no `pip`, and nothing to
+answer: the plugin works out for itself which command starts Python here, by
+trying them and keeping the first one that answers.
 
-```bash
-python3 -m pip install -r requirements.txt
+It works the same in a terminal, in the IDE extensions and in the Claude
+desktop app. The hooks travel with the plugin and point at their own folder, so
+moving or renaming things cannot break them.
+
+Then **open a new conversation.** Hooks are read when a session starts, so the
+one you installed from never got them — reopening that same conversation works
+too. On that first session the graphics library comes down into the plugin's
+own folder: about 100 MB, so give it a couple of minutes before the dragon
+turns up. Your system Python is never touched.
+
+> **On Windows this needs [Git for Windows](https://git-scm.com/downloads/win).**
+> The hooks run through a small shell script and Git Bash is what runs it.
+> Claude Code treats Git for Windows as optional, so without it they do
+> nothing — see [If the dragon does not show up](#if-the-dragon-does-not-show-up).
+
+#### If the dragon does not show up
+
+Run **`/claude-cute:doctor`** in Claude Code. Everything in the plugin fails
+quietly on purpose: eighteen hooks fire on every tool call, so anything that
+wrote to your screen would be unbearable noise. The reasons go to files
+instead, and the doctor is what reads them back — including the tail of pip's
+error if the graphics library failed to download, which nothing else will ever
+show you.
+
+Three causes worth knowing about, because none of them announces itself:
+
+- **The desktop app does not show hook errors.** The terminal prints them; the
+  desktop app shows nothing at all. If something in the chain is failing,
+  running one session in a terminal is the fastest way to read the real
+  message.
+- **No `bash`.** On Windows without Git for Windows the hooks run nothing. Fix
+  it by installing Git for Windows, or from a clone run `py install.py`, which
+  registers the same hooks with a direct path to your Python and no shell
+  involved. `py uninstall.py` undoes it. It sits alongside the plugin rather
+  than replacing it, so nothing ends up duplicated.
+- **A project that turns hooks off.** `"disableAllHooks": true` in any
+  `settings.json` — global, project or local — stops all of them. If the dragon
+  reacts everywhere except in one project, look for that key first.
+
+#### If port 8770 is already taken
+
+The widget listens on `127.0.0.1:8770`. If another program holds it, the widget
+**moves to the next free port on its own** and records it in `config.json`. The
+hook reads that same file, so nothing else is needed.
+
+It only stops if what holds the port is another Claude Cute — that is the
+single-instance control, and moving would quietly start a duplicate.
+
+To pin a specific port, add it by hand:
+
+```json
+{ "port": 8771 }
 ```
 
-### Starting it
-
-On Windows, double click **`run.bat`**. On Linux, run **`run.sh`**:
-
-```bash
-bash run.sh
-```
-
-> Invoked as `bash run.sh` and not `./run.sh` on purpose: the executable bit
-> does not survive a download, so telling you to `chmod` first would only add a
-> step that fails silently if you skip it.
-
-Or start it by hand:
-
-```bash
-pyw -3 main.py      # Windows
-python3 main.py     # Linux
-```
-
-The avatar appears in the bottom-right corner and starts listening for events
-on `127.0.0.1:8770`.
-
-> **Why `pyw -3` and not `python` on Windows**: if you have several Pythons
-> installed — the Microsoft Store alias, for instance — a bare `python` may
-> pick the wrong one and fail with `ModuleNotFoundError: No module named
-> 'PySide6'`. The Windows `py`/`pyw` launcher always picks the right one, and
-> `pyw` also skips the console window.
+### Using it
 
 Order does not matter: the widget and Claude Code are independent. Start either
 first, and close and reopen either without breaking anything.
@@ -166,6 +192,70 @@ hiding out of sight.
 > avatar returns to the corner with its default character. Only the
 > preferences: nothing else is lost.
 
+### From a clone
+
+This is the route for reading the code, drawing a character or running
+the widget without Claude Code. If you only want the dragon on your
+desktop, you do not need any of it — see [Installing it](#installing-it).
+
+Unlike the plugin, this route wants the graphics library installed yourself.
+From a terminal, in the project folder:
+
+```bash
+py -3 -m pip install -r requirements.txt
+```
+
+On Linux:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+
+On Windows, double click **`run.bat`**. On Linux, run **`run.sh`**:
+
+```bash
+bash run.sh
+```
+
+> Invoked as `bash run.sh` and not `./run.sh` on purpose: the executable bit
+> does not survive a download, so telling you to `chmod` first would only add a
+> step that fails silently if you skip it.
+
+Or start it by hand:
+
+```bash
+pyw -3 main.py      # Windows
+python3 main.py     # Linux
+```
+
+The avatar appears in the bottom-right corner and starts listening for events
+on `127.0.0.1:8770`.
+
+> **Why `pyw -3` and not `python` on Windows**: if you have several Pythons
+> installed — the Microsoft Store alias, for instance — a bare `python` may
+> pick the wrong one and fail with `ModuleNotFoundError: No module named
+> 'PySide6'`. The Windows `py`/`pyw` launcher always picks the right one, and
+> `pyw` also skips the console window.
+
+#### Testing without Claude Code
+
+```bash
+curl -X POST http://127.0.0.1:8770/event -H "Content-Type: application/json" -d "{\"state\":\"working\"}"
+```
+
+| Endpoint | Method | Body | Returns |
+|---|---|---|---|
+| `/event` | POST | `{"event": "PreToolUse", "tool": "Bash"}` or `{"state": "working"}` | `{"state": "..."}` |
+| `/state` | GET | — | `{"state": "..."}` |
+
+The `tool` field is optional and refines `PreToolUse`: `Bash` gives
+`working-bash`, `Edit` gives `working-edit`, and so on.
+
+The POST requires the `Content-Type: application/json` header. That is not red
+tape: without it, any page you visit could POST to this port from your own
+browser. The server only listens on `127.0.0.1` and caps the body at 8 KB.
+
 #### If it will not start
 
 `run.bat` reports a missing `main.py`, a missing `py` launcher, or a PySide6
@@ -175,6 +265,9 @@ start anyway.
 
 If absolutely nothing happens, the most likely reason is that it is already
 running — look for the dragon on screen, or close it with right click → Quit.
+
+> Installed as a plugin instead? The causes are different ones — see
+> [If the dragon does not show up](#if-the-dragon-does-not-show-up).
 
 To see any error in full, run it with a console:
 
@@ -193,205 +286,6 @@ If the path contains `AppData\Local\Packages\...`, it is inside the private
 storage of a packaged (MSIX) application and the rest of the system cannot see
 it. Reinstall from a normal terminal.
 
-### Connecting it to Claude Code
-
-The avatar finds out what is going on through Claude Code's **hooks**:
-*event → command* pairs that Claude Code runs automatically. There are two ways
-to set them up.
-
-#### As a plugin (two commands)
-
-```
-/plugin marketplace add EmmanuelUnsc/Claude-Cute
-/plugin install claude-cute
-```
-
-It asks once how Python is started on your machine —`python3` is already filled
-in; on Windows put `py`— and that is it. The hooks come with the plugin and
-point at their own folder, so **moving or renaming the project cannot break
-them**, which is the one failure the manual route has and cannot fix.
-
-The plugin carries the program; the graphics library is fetched once, the
-first time the dragon is asked for on a machine that does not already have it.
-
-> **Conversations you already had open stay quiet.** Hooks are loaded when a
-> session opens, so anything already running when you installed the plugin
-> never got them. Open a new conversation, or reopen that one — resuming works
-> too. Everything from then on reacts.
-
-> **Coming from the manual setup? Remove those hooks first.** Otherwise every
-> event fires twice: once from your `settings.json` and once from the plugin.
-> Nothing breaks, but every tool call does the work twice.
-
-#### In the desktop app
-
-The Claude desktop app does not run the hooks a plugin declares
-([claude-code#34573](https://github.com/anthropics/claude-code/issues/34573),
-closed as not planned), so there the dragon neither starts nor reacts. In a
-terminal and in the IDE extensions everything works.
-
-Until that changes, one command registers the same hooks where the desktop app
-does read them:
-
-```bash
-py install.py
-```
-
-It only adds what the plugin cannot deliver, so it sits alongside it instead of
-duplicating anything. Every other setting in your `settings.json` is left as it
-was, and a backup is written first. Open a new session for it to take effect.
-
-To undo it:
-
-```bash
-py uninstall.py
-```
-
-> It records the full path of the Python you ran it with, and of this copy of
-> the project. Move either of them and you run `py install.py` again.
-
-#### By hand
-
-For running from a clone, or if you would rather see exactly what gets
-installed.
-
-The configuration lives in `~/.claude/settings.json` — on Windows,
-`C:\Users\YOUR-USER\.claude\settings.json`.
-
-> **Merge it, do not replace it.** That file may already hold your own
-> preferences (`model`, `theme`) and hooks from other tools. If you paste the
-> block below over everything, you lose them. If the file does not exist yet,
-> paste it as is; if it does, see the example at the end of this section.
-
-Add the `hooks` section, replacing `PATH` with the absolute path to this
-folder. **Keep the quotes around it**: the folder name has a space in it, and
-without them Claude Code tries to run `Claude` as a program and the hook never
-fires — silently, because these hooks are asynchronous.
-
-On Linux or macOS, use `python3` instead of `py -3`.
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "PostToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "PostToolUseFailure": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "PostToolBatch": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "PermissionRequest": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "PermissionDenied": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "SessionStart": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "Notification": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "SubagentStart": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "TaskCreated": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "TaskCompleted": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "PreCompact": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "PostCompact": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "Stop": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "StopFailure": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }],
-    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true }] }]
-  }
-}
-```
-
-The ones carrying `"matcher": "*"` are tool events; the rest do not need it.
-
-**An event you do not register here never fires**, no matter how well the
-widget knows what to do with it. Registering extra ones does no harm either: an
-event your Claude Code version does not emit simply never happens.
-
-The more events you register, the more states the avatar tells apart. With just
-`UserPromptSubmit`, `PreToolUse`, `PostToolUse` and `Stop` the essentials
-already work; the rest adds `waiting`, `error`, `wake`, `sleep` and
-`compacting`.
-
-`"async": true` matters: without it Claude Code **waits** for the hook to
-finish before carrying on, and starting a Python interpreter costs about
-180 ms. Since two hooks fire per tool, every tool call would pay almost four
-tenths of a second of waiting. In the background that cost disappears: the
-avatar does not need to answer before the tool, only shortly after.
-
-The hook reads the event from stdin and POSTs it with a 400 ms budget. If the
-widget is not running, it neither fails nor delays Claude Code.
-
-> If you move or rename the project folder, remember to update the path here:
-> the hooks stop working silently.
-
-#### If your file already had things
-
-`settings.json` is a single JSON object: the `hooks` section sits alongside the
-rest of your preferences as one more key.
-
-```json
-{
-  "model": "opus",
-  "theme": "dark",
-  "hooks": {
-    "PreToolUse": [ ... ]
-  }
-}
-```
-
-And if you already had a hook on the same event, **you do not have to choose**:
-each event is a list and one more group is added to it. Claude Code runs every
-matching hook in parallel.
-
-```json
-"PreToolUse": [
-  { "matcher": "*",    "hooks": [ { "type": "command", "command": "py -3 \"PATH/hooks/notify.py\"", "async": true } ] },
-  { "matcher": "Bash", "hooks": [ { "type": "command", "command": "what-you-already-had.sh" } ] }
-]
-```
-
-If the JSON ends up malformed, Claude Code ignores the **whole** file, and
-silently. Run it through a JSON validator before saving.
-
-#### What if a project has its own configuration?
-
-It does not get in the way. Claude Code reads three files — the global one, the
-project's (`.claude/settings.json`) and the local one
-(`.claude/settings.local.json`) — and **merges** them. On top of that each
-event is a list of groups, so a project's hooks are **added** to yours rather
-than replacing them.
-
-The only thing that turns hooks off is `"disableAllHooks": true` in any of
-those files (or `allowManagedHooksOnly` in an organization-managed
-configuration). If the avatar stops reacting in one project only, look for that
-key before anything else.
-
-#### If port 8770 is already taken
-
-The widget listens on `127.0.0.1:8770`. If another program holds it, the widget
-**moves to the next free port on its own** and records it in `config.json`. The
-hook reads that same file, so nothing else is needed.
-
-It only stops if what holds the port is another Claude Cute — that is the
-single-instance control, and moving would quietly start a duplicate.
-
-To pin a specific port, add it by hand:
-
-```json
-{ "port": 8771 }
-```
-
-### Testing without Claude Code
-
-```bash
-curl -X POST http://127.0.0.1:8770/event -H "Content-Type: application/json" -d "{\"state\":\"working\"}"
-```
-
-| Endpoint | Method | Body | Returns |
-|---|---|---|---|
-| `/event` | POST | `{"event": "PreToolUse", "tool": "Bash"}` or `{"state": "working"}` | `{"state": "..."}` |
-| `/state` | GET | — | `{"state": "..."}` |
-
-The `tool` field is optional and refines `PreToolUse`: `Bash` gives
-`working-bash`, `Edit` gives `working-edit`, and so on.
-
-The POST requires the `Content-Type: application/json` header. That is not red
-tape: without it, any page you visit could POST to this port from your own
-browser. The server only listens on `127.0.0.1` and caps the body at 8 KB.
 
 ### Project structure
 
@@ -400,13 +294,16 @@ Claude Cute/
 ├── main.py                  entry point: builds and wires everything
 ├── run.bat                  launcher, Windows
 ├── run.sh                   launcher, Linux
-├── install.py               registers the hooks by hand, for the desktop app
+├── install.py               registers the hooks by hand, for machines with no bash
 ├── uninstall.py             removes them again
 ├── requirements.txt
 │
 ├── .claude-plugin/
 │   ├── plugin.json          what the plugin is
 │   └── marketplace.json     catalogue pointing at this same repository
+│
+├── commands/
+│   └── doctor.md            /claude-cute:doctor — why the dragon is not there
 │
 ├── src/
 │   ├── server.py            local HTTP server that receives the events
@@ -421,6 +318,8 @@ Claude Cute/
 │
 ├── hooks/
 │   ├── hooks.json           the 18 events, with no absolute paths
+│   ├── cute-python.sh       finds a Python 3.10+ so nobody has to be asked
+│   ├── runtime.py           fetches PySide6 once, into its own folder
 │   ├── launch.py            run at session start; makes sure it is running
 │   └── notify.py            run by Claude Code; tells the widget
 │
@@ -508,8 +407,7 @@ claude plugin marketplace remove claude-cute
 From the desktop app, the **+** button next to the prompt box → *Plugins* →
 *Manage plugins* does the same thing.
 
-If you ran `py install.py` for the desktop app, undo it from the project
-folder:
+If you ran `py install.py`, undo it from the project folder:
 
 ```bash
 py uninstall.py
@@ -594,55 +492,76 @@ Además:
 |---|---|
 | Windows | ✅ de uso diario |
 | Claude Code en terminal o en un IDE | ✅ funciona todo |
-| La app de escritorio de Claude | ⚠️ necesita un paso extra — ver [En la app de escritorio](#en-la-app-de-escritorio) |
+| La app de escritorio de Claude | ✅ funciona todo — pero [oculta los errores de hook](#si-el-dragón-no-aparece) |
+| Windows sin Git for Windows | ⚠️ los hooks del plugin necesitan `bash` — [hay una salida](#si-el-dragón-no-aparece) |
 | Linux con X11 | ⚠️ **escrito para funcionar ahí, nunca ejecutado ahí.** Nada del código usa APIs exclusivas de Windows y el lanzador está hecho, pero nadie arrancó esto todavía en un escritorio Linux. Se agradecen reportes |
 | Linux con Wayland | ⬜ el dragón aparece y reacciona, pero **no se puede mover**: Wayland no deja que una ventana se posicione sola. Previsto para después del primer lanzamiento |
 | macOS | ⬜ previsto para después del primer lanzamiento |
 
-### Instalación
+### Instalarlo
 
-Desde una terminal, en la carpeta del proyecto:
-
-```bash
-py -3 -m pip install -r requirements.txt     # Windows
-python3 -m pip install -r requirements.txt   # Linux
+```
+/plugin marketplace add EmmanuelUnsc/Claude-Cute
+/plugin install claude-cute
 ```
 
-La única dependencia es PySide6.
+Dos comandos y eso es todo. Sin clonar, sin `pip` y sin nada que contestar: el
+plugin averigua solo con qué comando arranca Python acá, probándolos y
+quedándose con el primero que responde.
 
-Para comprobar que quedó bien instalado:
+Funciona igual en una terminal, en las extensiones de IDE y en la app de
+escritorio de Claude. Los hooks viajan con el plugin y apuntan a su propia
+carpeta, así que mover o renombrar cosas no puede romperlos.
 
-```bash
-py -3 -c "import PySide6; print(PySide6.__file__)"
+Después **abre una conversación nueva.** Los hooks se leen al empezar una
+sesión, así que aquella desde la que instalaste nunca los recibió — volver a
+abrir esa misma también sirve. En esa primera sesión se baja la biblioteca
+gráfica a la carpeta del plugin: unos 100 MB, así que dale un par de minutos
+antes de que aparezca el dragón. Tu Python del sistema no se toca nunca.
+
+> **En Windows esto necesita [Git for Windows](https://git-scm.com/downloads/win).**
+> Los hooks pasan por un script de shell y quien lo ejecuta es Git Bash. Claude
+> Code trata a Git for Windows como opcional, así que sin él no hacen nada —
+> mira [Si el dragón no aparece](#si-el-dragón-no-aparece).
+
+#### Si el dragón no aparece
+
+Ejecuta **`/claude-cute:doctor`** en Claude Code. Todo en el plugin falla en
+silencio a propósito: dieciocho hooks disparan en cada llamada a herramienta,
+así que cualquier cosa que escribiera en tu pantalla sería ruido insoportable.
+Las razones van a archivos, y el doctor es lo que las lee de vuelta — incluida
+la cola del error de pip si falló la descarga de la biblioteca gráfica, que es
+algo que nada más te va a mostrar.
+
+Tres causas que conviene conocer, porque ninguna se anuncia sola:
+
+- **La app de escritorio no muestra los errores de hook.** La terminal sí; el
+  escritorio no dice absolutamente nada. Si algo de la cadena está fallando,
+  abrir una sesión en una terminal es la forma más rápida de leer el mensaje
+  real.
+- **No hay `bash`.** En Windows sin Git for Windows los hooks no ejecutan nada.
+  Se arregla instalando Git for Windows, o desde un clon con `py install.py`,
+  que registra los mismos hooks con la ruta directa a tu Python y ningún shell
+  de por medio. `py uninstall.py` lo deshace. Convive con el plugin en vez de
+  reemplazarlo, así que no se duplica nada.
+- **Un proyecto que apaga los hooks.** `"disableAllHooks": true` en cualquier
+  `settings.json` —global, del proyecto o local— los detiene todos. Si el
+  dragón reacciona en todos lados menos en un proyecto, busca esa clave primero.
+
+#### Si el puerto 8770 ya está ocupado
+
+El widget escucha en `127.0.0.1:8770`. Si otro programa lo tiene tomado, al
+arrancar te lo va a decir —distingue entre "ya hay un Claude Cute" y "hay un
+extraño"— y puedes elegir otro agregando una línea a `config.json`, junto a
+`main.py`:
+
+```json
+{ "puerto": 8771 }
 ```
 
-### Cómo se inicia
+El hook lee ese mismo archivo, así que con cambiarlo una vez alcanza.
 
-En Windows, doble click en **`run.bat`**. En Linux, se corre **`run.sh`**:
-
-```bash
-bash run.sh
-```
-
-> Se invoca con `bash run.sh` y no con `./run.sh` a propósito: el permiso de
-> ejecución no sobrevive a una descarga, así que pedirte un `chmod` antes sólo
-> agregaría un paso que falla en silencio si se lo omite.
-
-O a mano:
-
-```bash
-pyw -3 main.py      # Windows
-python3 main.py     # Linux
-```
-
-El avatar aparece en la esquina inferior derecha y queda escuchando eventos en
-`127.0.0.1:8770`.
-
-> **Por qué `pyw -3` y no `python`**: si tienes varios Python instalados — el
-> alias de Microsoft Store, por ejemplo — `python` a secas puede agarrar el
-> equivocado y fallar con `ModuleNotFoundError: No module named 'PySide6'`. El
-> launcher `py`/`pyw` de Windows siempre elige el correcto. `pyw` además evita
-> la ventana de consola.
+### Cómo se usa
 
 No importa el orden: el widget y Claude Code son independientes. Puedes abrir
 cualquiera primero, y cerrar y reabrir cualquiera de los dos sin romper nada.
@@ -708,6 +627,74 @@ quedar escondido fuera de la vista.
 > avatar vuelve a la esquina con su personaje por defecto. Sólo las
 > preferencias: no se pierde nada más.
 
+### Desde un clon
+
+Esta es la vía para leer el código, dibujar un personaje o usar el widget
+sin Claude Code. Si sólo quieres el dragón en tu escritorio no necesitas
+nada de esto — mira [Instalarlo](#instalarlo).
+
+A diferencia del plugin, esta vía quiere que instales la biblioteca gráfica vos.
+Desde una terminal, en la carpeta del proyecto:
+
+```bash
+py -3 -m pip install -r requirements.txt     # Windows
+python3 -m pip install -r requirements.txt   # Linux
+```
+
+La única dependencia es PySide6.
+
+Para comprobar que quedó bien instalado:
+
+```bash
+py -3 -c "import PySide6; print(PySide6.__file__)"
+```
+
+
+En Windows, doble click en **`run.bat`**. En Linux, se corre **`run.sh`**:
+
+```bash
+bash run.sh
+```
+
+> Se invoca con `bash run.sh` y no con `./run.sh` a propósito: el permiso de
+> ejecución no sobrevive a una descarga, así que pedirte un `chmod` antes sólo
+> agregaría un paso que falla en silencio si se lo omite.
+
+O a mano:
+
+```bash
+pyw -3 main.py      # Windows
+python3 main.py     # Linux
+```
+
+El avatar aparece en la esquina inferior derecha y queda escuchando eventos en
+`127.0.0.1:8770`.
+
+> **Por qué `pyw -3` y no `python`**: si tienes varios Python instalados — el
+> alias de Microsoft Store, por ejemplo — `python` a secas puede agarrar el
+> equivocado y fallar con `ModuleNotFoundError: No module named 'PySide6'`. El
+> launcher `py`/`pyw` de Windows siempre elige el correcto. `pyw` además evita
+> la ventana de consola.
+
+#### Probar sin Claude Code
+
+```bash
+curl -X POST http://127.0.0.1:8770/event -H "Content-Type: application/json" -d "{\"state\":\"working\"}"
+```
+
+| Endpoint | Método | Body | Devuelve |
+|---|---|---|---|
+| `/event` | POST | `{"event": "PreToolUse", "tool": "Bash"}` o `{"state": "working"}` | `{"state": "..."}` |
+| `/state` | GET | — | `{"state": "..."}` |
+
+El campo `tool` es opcional y refina `PreToolUse`: `Bash` da `working-bash`,
+`Edit` da `working-edit`, y así.
+
+El POST exige la cabecera `Content-Type: application/json`. No es capricho:
+sin eso, cualquier página que visites podría hacerle un POST a este puerto
+desde tu propio navegador. El servidor sólo escucha en `127.0.0.1` y limita el
+cuerpo a 8 KB.
+
 #### Si no arranca
 
 `run.bat` avisa si falta `main.py`, si falta el launcher `py` o si no puede
@@ -717,6 +704,9 @@ arrancar igual.
 
 Si no pasa absolutamente nada, lo más probable es que ya esté corriendo —
 buscá el dragón en la pantalla, o cerralo con click derecho → Quit.
+
+> ¿Lo instalaste como plugin? Ahí las causas son otras — mira
+> [Si el dragón no aparece](#si-el-dragón-no-aparece).
 
 Para ver cualquier error completo, ejecútalo con consola:
 
@@ -737,221 +727,6 @@ sistema no lo ve. Reinstalalo desde una terminal normal. El caso concreto que
 motivó esta nota: un `pip install` corrido por un agente dentro del contenedor
 de la app de escritorio de Claude — funcionaba ahí y no en Windows.
 
-### Conectar con Claude Code
-
-El avatar se entera de lo que pasa a través de los **hooks** de Claude Code:
-pares *evento → comando* que Claude Code ejecuta automáticamente. Hay dos
-formas de dejarlos andando.
-
-#### Como plugin (dos comandos)
-
-```
-/plugin marketplace add EmmanuelUnsc/Claude-Cute
-/plugin install claude-cute
-```
-
-Pregunta una sola vez cómo se llama Python en tu máquina —`python3` ya viene
-puesto; en Windows va `py`— y listo. Los hooks vienen con el plugin y apuntan a
-su propia carpeta, así que **mover o renombrar el proyecto ya no puede
-romperlos**, que es la única falla que la instalación manual no puede evitar.
-
-El plugin trae el programa; la biblioteca gráfica se baja una sola vez, la primera
-vez que se pide el dragón en una máquina que no la tiene.
-
-> **Las conversaciones que ya estaban abiertas quedan mudas.** Los hooks se
-> cargan al abrir una sesión, así que lo que estaba corriendo cuando instalaste
-> el plugin nunca los recibió. Abre una conversación nueva, o vuelve a abrir
-> esa — reanudar también funciona. De ahí en adelante todo reacciona.
-
-> **¿Vienes de la instalación manual? Quita esos hooks primero.** Si no, cada
-> evento sale dos veces: uno desde tu `settings.json` y otro desde el plugin.
-> No rompe nada, pero duplica el trabajo en cada llamada a herramienta.
-
-#### En la app de escritorio
-
-La app de escritorio de Claude no ejecuta los hooks que declara un plugin
-([claude-code#34573](https://github.com/anthropics/claude-code/issues/34573),
-cerrado como *not planned*), así que ahí el dragón ni arranca ni reacciona. En
-una terminal y en las extensiones de IDE funciona todo.
-
-Hasta que eso cambie, un comando registra los mismos hooks donde la app sí los
-lee:
-
-```bash
-py install.py
-```
-
-Agrega sólo lo que el plugin no logra entregar, así que convive con él en vez
-de duplicar nada. Todo lo demás de tu `settings.json` queda como estaba, y
-antes de tocarlo se guarda una copia. Abre una sesión nueva para que tome
-efecto.
-
-Para deshacerlo:
-
-```bash
-py uninstall.py
-```
-
-> Anota la ruta completa del Python con que se ejecutó y la de esta copia
-> del proyecto. Si se mueve cualquiera de las dos, hay que volver a
-> ejecutar `py install.py`.
-
-#### A mano
-
-Para correr desde una copia del código, o si prefieres ver exactamente qué se
-instala.
-
-La configuración vive en `~/.claude/settings.json` — en Windows,
-`C:\Users\TU-USUARIO\.claude\settings.json`.
-
-> **Fusionalo, no lo reemplaces.** Ese archivo puede tener ya preferencias
-> tuyas (`model`, `theme`) y hooks de otras herramientas. Si pegas el bloque de
-> abajo encima de todo, se pierden. Si el archivo todavía no existe, pégalo tal
-> cual; si ya existe, mirá el ejemplo al final de esta sección.
-
-Agregá la sección `hooks`, reemplazando `RUTA` por la ruta absoluta a esta
-carpeta. **Dejá las comillas alrededor**: el nombre de la carpeta tiene un
-espacio, y sin ellas Claude Code intenta ejecutar `Claude` como si fuera un
-programa y el hook no corre nunca — en silencio, porque estos hooks son
-asincrónicos.
-
-En Linux o macOS va `python3` en lugar de `py -3`.
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "PostToolUse": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "PostToolUseFailure": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "PermissionRequest": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "SessionStart": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "Notification": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "SubagentStart": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "PreCompact": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "PostCompact": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "Stop": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "StopFailure": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "PermissionDenied": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "PostToolBatch": [{ "matcher": "*", "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "TaskCreated": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }],
-    "TaskCompleted": [{ "hooks": [{ "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true }] }]
-  }
-}
-```
-
-Los que llevan `"matcher": "*"` son eventos de herramienta; el resto no lo
-necesita.
-
-**Un evento que no registres acá no se dispara nunca**, por más que el widget
-sepa qué hacer con él. Registrar de más tampoco molesta: un evento que tu
-versión de Claude Code no emita simplemente no ocurre.
-
-Cuantos más eventos registres, más estados distingue el avatar. Con sólo
-`UserPromptSubmit`, `PreToolUse`, `PostToolUse` y `Stop` ya funciona lo
-esencial; el resto suma `waiting`, `error`, `wake`, `sleep` y `compacting`.
-
-#### Si tu archivo ya tenía cosas
-
-`settings.json` es un solo objeto JSON: la sección `hooks` convive con el resto
-de tus preferencias como una clave más.
-
-```json
-{
-  "model": "opus",
-  "theme": "dark",
-  "hooks": {
-    "PreToolUse": [ ... ]
-  }
-}
-```
-
-Y si ya había un hook en el mismo evento, **no hay que elegir**: cada evento
-es una lista y se le agrega un grupo más. Claude Code ejecuta en paralelo todos
-los que coincidan.
-
-```json
-"PreToolUse": [
-  { "matcher": "*",    "hooks": [ { "type": "command", "command": "py -3 \"RUTA/hooks/notify.py\"", "async": true } ] },
-  { "matcher": "Bash", "hooks": [ { "type": "command", "command": "lo-que-ya-tenias.sh" } ] }
-]
-```
-
-Si el JSON queda mal formado, Claude Code ignora el archivo **entero** y sin
-avisar. Conviene pasarlo por un validador de JSON antes de guardar.
-
-Listo. Abrí una sesión de Claude Code y el dragón empieza a moverse solo.
-
-> **Sólo reacciona a Claude Code, no al chat de Claude.** Los hooks son una
-> funcionalidad de Claude Code: viven en su `settings.json` y los ejecuta él.
-> El chat no ejecuta comandos locales, así que no hay nada de dónde colgarse.
-> Tampoco reacciona a sesiones en la nube, porque ahí el hook correría en el
-> entorno remoto y el POST nunca llegaría a tu máquina.
->
-> Como el widget escucha HTTP, cualquier otra cosa capaz de hacer un POST puede
-> manejarlo: un build largo, una suite de tests, un deploy.
-
-El hook lee el evento por stdin y hace un POST con timeout de 400 ms. Si el
-widget no está corriendo, no falla ni demora a Claude Code.
-
-`"async": true` es importante: sin eso Claude Code **espera** a que el hook
-termine antes de seguir, y arrancar un intérprete de Python cuesta unos 180 ms.
-Como se disparan dos hooks por herramienta, cada tool call pagaría casi
-cuatro décimas de segundo de espera. En segundo plano el costo desaparece: el
-avatar no necesita responder antes que la herramienta, sólo poco después.
-
-> Si mueves o renombras la carpeta del proyecto, recuerda actualizar la ruta
-> acá: los hooks dejan de funcionar en silencio.
-
-#### ¿Y si un proyecto tiene su propia configuración?
-
-No molesta. Claude Code lee tres archivos —el global, el del proyecto
-(`.claude/settings.json`) y el local (`.claude/settings.local.json`)— y los
-**combina**. Además cada evento es una lista de grupos, así que los hooks de un
-proyecto se **suman** a los tuyos en vez de reemplazarlos.
-
-Está comprobado además de documentado: durante las pruebas se registró un hook
-de proyecto para los mismos eventos que ya tenía el global, y **los dos se
-dispararon en cada tool call**, cada uno con su propio payload.
-
-Lo único que apaga los hooks es `"disableAllHooks": true` en cualquiera de esos
-archivos (o `allowManagedHooksOnly` en una configuración administrada por una
-organización). Si el avatar deja de reaccionar sólo en un proyecto, buscá esa
-clave antes que cualquier otra cosa.
-
-#### Si el puerto 8770 ya está ocupado
-
-El widget escucha en `127.0.0.1:8770`. Si otro programa lo tiene tomado, al
-arrancar te lo va a decir —distingue entre "ya hay un Claude Cute" y "hay un
-extraño"— y puedes elegir otro agregando una línea a `config.json`, junto a
-`main.py`:
-
-```json
-{ "puerto": 8771 }
-```
-
-El hook lee ese mismo archivo, así que con cambiarlo una vez alcanza.
-
-### Probar sin Claude Code
-
-```bash
-curl -X POST http://127.0.0.1:8770/event -H "Content-Type: application/json" -d "{\"state\":\"working\"}"
-```
-
-| Endpoint | Método | Body | Devuelve |
-|---|---|---|---|
-| `/event` | POST | `{"event": "PreToolUse", "tool": "Bash"}` o `{"state": "working"}` | `{"state": "..."}` |
-| `/state` | GET | — | `{"state": "..."}` |
-
-El campo `tool` es opcional y refina `PreToolUse`: `Bash` da `working-bash`,
-`Edit` da `working-edit`, y así.
-
-El POST exige la cabecera `Content-Type: application/json`. No es capricho:
-sin eso, cualquier página que visites podría hacerle un POST a este puerto
-desde tu propio navegador. El servidor sólo escucha en `127.0.0.1` y limita el
-cuerpo a 8 KB.
 
 ### Estructura del proyecto
 
@@ -960,12 +735,15 @@ Claude Cute/
 ├── main.py                  punto de entrada: arma y conecta todo
 ├── run.bat                  lanzador, Windows
 ├── run.sh                   lanzador, Linux
-├── install.py               registra los hooks a mano, para la app de escritorio
+├── install.py               registra los hooks a mano, para máquinas sin bash
 ├── uninstall.py             los vuelve a quitar
 │
 ├── .claude-plugin/
 │   ├── plugin.json          qué es el plugin
 │   └── marketplace.json     catálogo que apunta a este mismo repositorio
+│
+├── commands/
+│   └── doctor.md            /claude-cute:doctor — por qué no está el dragón
 ├── requirements.txt
 │
 ├── src/
@@ -981,6 +759,8 @@ Claude Cute/
 │
 ├── hooks/
 │   ├── hooks.json           los 18 eventos, sin rutas absolutas
+│   ├── cute-python.sh       busca un Python 3.10+ para no preguntarle a nadie
+│   ├── runtime.py           baja PySide6 una vez, a su propia carpeta
 │   ├── launch.py            corre al abrir sesión; se asegura de que esté vivo
 │   └── notify.py            lo ejecuta Claude Code; avisa al widget
 │
@@ -1039,9 +819,11 @@ plugin instalable con un comando y la suite de tests en verde.
 
 Lo que se sabe que falta:
 
-- **La app de escritorio de Claude no ejecuta los hooks de un plugin**
-  ([claude-code#34573](https://github.com/anthropics/claude-code/issues/34573)).
-  Hasta que cambie, ahí hace falta `py install.py`.
+- **En Windows sin Git for Windows los hooks del plugin no corren**: empiezan
+  con `bash` y ahí no hay ninguno. Esa máquina necesita `py install.py`.
+- **La app de escritorio no muestra los errores de hook.** Falla igual que la
+  terminal, pero en silencio, así que cualquier problema ahí se ve como que no
+  pasa nada. `/claude-cute:doctor` existe por eso.
 - **Varias sesiones comparten un único avatar** y gana el último evento, con
   dos excepciones: un aviso pendiente de otra sesión no se pisa, y cerrar una
   ventana sólo duerme al avatar si era la última viva.
@@ -1094,7 +876,7 @@ claude plugin marketplace remove claude-cute
 Desde la app de escritorio es lo mismo con el botón **+** al lado del cuadro de
 texto → *Plugins* → *Manage plugins*.
 
-Si ejecutaste `py install.py` para la app de escritorio, deshazlo desde la
+Si ejecutaste `py install.py`, deshazlo desde la
 carpeta del proyecto:
 
 ```bash
