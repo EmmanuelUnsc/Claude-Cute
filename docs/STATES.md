@@ -52,7 +52,7 @@ The third one is what to use for real testing: it goes through `EVENTS`,
 | `error-api` | `StopFailure` | Cannot be triggered on purpose | 1.2 s | `idle` |
 | `wake` | `SessionStart` | Open a Claude Code session | 1.2 s | `idle` |
 | `sleep` | `SessionEnd` | Close a Claude Code session | 1.4 s | `idle-sleep` |
-| `compacting` | `PreCompact` | Run `/compact` by hand | until `PostCompact` | safety net after 45 s |
+| `compacting` | `PreCompact` | Run `/compact` by hand | until `PostCompact` | safety net after 300 s |
 | `dragged` | **no event** | Drag the avatar with the left button | while you hold it | never — it is not the session's |
 
 ---

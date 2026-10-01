@@ -124,6 +124,9 @@ SLEEP_AFTER = 300.0
 # worse than giving up early. Every active state gets one.
 STALL_AFTER: dict[str, float] = {
     WORKING: 120.0,  # inherited by working-bash, working-edit, etc.
+    # A compaction sends no events while it runs and often takes minutes, so
+    # the generic 45 s gave up on it halfway through.
+    COMPACTING: 300.0,
     # Not stalled but waiting for a person, so it is given the whole workday.
     WAITING: 8 * 3600.0,
 }

@@ -238,5 +238,12 @@ class TestTheTwoInheritances(unittest.TestCase):
             st.PARENTS.update(original)
 
 
+class TestCompactingIsNotStalled(unittest.TestCase):
+    def test_it_outlasts_the_generic_safety_net(self):
+        # A compaction is silent until `PostCompact` and routinely runs past
+        # 45 s; with the generic limit the dragon dropped to idle mid-way.
+        self.assertGreaterEqual(st.stall_limit(st.COMPACTING), 300.0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
