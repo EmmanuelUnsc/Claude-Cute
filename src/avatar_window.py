@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import sys
+import time
+
 from PySide6.QtCore import Qt, QPoint, QRect, QTimer
 from PySide6.QtGui import QCursor, QGuiApplication, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
@@ -14,6 +17,37 @@ from .state_manager import StateManager
 from .states import DRAGGED
 
 MARGIN = 24  # gap from the edge of the screen
+
+# Seconds between reclaiming the top of the stack.
+ON_TOP_EVERY = 3.0
+
+
+def _assert_topmost(window_id: int) -> None:
+    """Puts the window back at the top of the always-on-top band.
+
+    Windows sets "topmost" once, and the last topmost window to be activated
+    wins: click the taskbar and it covers an avatar nobody has touched since
+    startup. `SWP_NOACTIVATE` matters, or this would steal focus from whatever
+    you are typing in. Elsewhere the window manager keeps the flag, so it is a
+    no-op.
+    """
+    if sys.platform != "win32":
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    set_window_pos = ctypes.windll.user32.SetWindowPos
+    set_window_pos.argtypes = (
+        wintypes.HWND, wintypes.HWND,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        wintypes.UINT,
+    )
+    hwnd_topmost = wintypes.HWND(-1)
+    swp_nosize, swp_nomove, swp_noactivate = 0x0001, 0x0002, 0x0010
+    set_window_pos(
+        window_id, hwnd_topmost, 0, 0, 0, 0,
+        swp_nosize | swp_nomove | swp_noactivate,
+    )
 
 
 class AvatarWindow(QWidget):
@@ -31,6 +65,7 @@ class AvatarWindow(QWidget):
         self._dragging = False
         self._frame: QPixmap | None = engine.current_frame()
         self._smoothing = Smoothing(engine)
+        self._on_top_at = time.monotonic()
         # One menu, refilled on each opening rather than recreated.
         self._menu = QMenu(self)
 
@@ -73,6 +108,18 @@ class AvatarWindow(QWidget):
                 self._show(truth)
         self._frame = self.engine.advance()
         self.update()
+        if time.monotonic() - self._on_top_at >= ON_TOP_EVERY:
+            self.stay_on_top()
+
+    def stay_on_top(self) -> None:
+        """Reclaims the top of the stack, in case something climbed over it.
+
+        Not while the menu is open, which would end up underneath, nor while
+        hidden, which would be pointless.
+        """
+        self._on_top_at = time.monotonic()
+        if self.isVisible() and not self._menu.isVisible():
+            _assert_topmost(int(self.winId()))
 
     def _show(self, state: str) -> None:
         self.engine.set_state(state)
@@ -181,6 +228,7 @@ class AvatarWindow(QWidget):
         self._unhide.stop()
         self.setVisible(True)
         self.raise_()
+        self.stay_on_top()
 
     def _apply_measurements(self) -> None:
         """Resizes in case the character's size or scale changed."""

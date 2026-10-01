@@ -22,6 +22,7 @@ from PySide6.QtCore import QEvent, QPoint, QPointF, Qt  # noqa: E402
 from PySide6.QtGui import QCursor, QGuiApplication, QMouseEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from src import avatar_window as window_mod  # noqa: E402
 from src import menu as menu_mod  # noqa: E402
 from src import smoothing as smoothing_mod  # noqa: E402
 from src.animation_engine import AnimationEngine  # noqa: E402
@@ -432,6 +433,57 @@ class TestVisibility(BaseWindow):
         window.hide_for(15)
         window.show_again()
         self.assertFalse(window._unhide.isActive())
+
+
+class TestStaysOnTop(BaseWindow):
+    """The taskbar can climb over an avatar nobody touches, so it reclaims
+    the top on its own."""
+
+    def setUp(self):
+        self.calls: list[int] = []
+        original = window_mod._assert_topmost
+        window_mod._assert_topmost = self.calls.append
+        self.addCleanup(setattr, window_mod, "_assert_topmost", original)
+
+    def test_the_clock_reclaims_the_top(self):
+        window = self.make()
+        window.show()
+        window._on_top_at -= window_mod.ON_TOP_EVERY
+        window._on_tick()
+        self.assertEqual(self.calls, [int(window.winId())])
+
+    def test_not_on_every_frame(self):
+        # Every few seconds is enough; every 100 ms would be a system call
+        # per frame for nothing.
+        window = self.make()
+        window.show()
+        window.stay_on_top()
+        self.calls.clear()
+        window._on_tick()
+        self.assertEqual(self.calls, [])
+
+    def test_not_while_hidden(self):
+        window = self.make()
+        window.show()
+        window.hide_for(15)
+        window.stay_on_top()
+        self.assertEqual(self.calls, [])
+
+    def test_not_over_its_own_menu(self):
+        window = self.make()
+        window.show()
+        window._menu.addAction("x")
+        window._menu.popup(QPoint(0, 0))
+        self.addCleanup(window._menu.hide)
+        window.stay_on_top()
+        self.assertEqual(self.calls, [])
+
+    def test_coming_back_reclaims_it_at_once(self):
+        window = self.make()
+        window.show()
+        window.hide_for(15)
+        window.show_again()
+        self.assertEqual(len(self.calls), 1)
 
 
 class TestMenu(BaseWindow):
