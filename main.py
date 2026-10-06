@@ -98,7 +98,7 @@ def main() -> int:
     print(f"[claude-cute] listening for events on http://{HOST}:{port}/event")
 
     window = AvatarWindow(manager, engine, config)
-    window.show()
+    window.drop_in()
 
     return app.exec()
 

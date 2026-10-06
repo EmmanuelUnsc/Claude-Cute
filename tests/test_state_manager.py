@@ -51,10 +51,15 @@ class TestStateManager(unittest.TestCase):
         with self.assertRaises(ValueError):
             StateManager().set_state(st.DRAGGED)
 
-    def test_session_states_are_the_whole_tree_minus_dragged(self):
+    def test_session_states_are_the_whole_tree_minus_the_window_ones(self):
         # Guards the derivation: a state added to the tree is a session state
         # unless someone deliberately says otherwise.
-        self.assertEqual(set(st.STATES) - set(st.SESSION_STATES), {st.DRAGGED})
+        self.assertEqual(set(st.STATES) - set(st.SESSION_STATES),
+                         {st.DRAGGED, st.FALLING})
+
+    def test_the_manager_refuses_the_entrance_too(self):
+        with self.assertRaises(ValueError):
+            StateManager().set_state(st.FALLING)
 
     def test_the_callback_only_fires_on_real_changes(self):
         seen = []

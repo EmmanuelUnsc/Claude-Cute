@@ -165,7 +165,7 @@ pose**.
 | Folder | Frames | Type | What it shows |
 |---|---|---|---|
 | `idle` | 4 ✅ | loop | Resting. Gentle breathing |
-| `idle-sleep` | 4 ✅ | loop | Asleep. Zs pile up. Starts after 5 min of inactivity |
+| `idle-sleep` | 4 ✅ | loop | Asleep. Zs pile up. Starts once every session is closed |
 | `thinking` | 6 ✅ | loop | Reasoning. Bubble with dots |
 | `working` | 6 ✅ | loop | Fallback for tools with no animation of their own |
 | `working-bash` | 6 ✅ | loop | Terminal command |
@@ -189,7 +189,13 @@ one animation you are guaranteed to actually watch, since you are looking
 straight at the dragon while you drag it. Drawn as an entry plus a loop: seven
 frames, tail from the sixth.
 
-**The set is complete: 16 folders, 84 frames.** The only state with no drawing
+**`falling` is the seventeenth, and the window's other one.** The pose while
+the dragon drops onto its spot at startup; it touches down and hops in its
+resting pose. One frame (wings open, from `Claude Flying`), held for the whole
+fall, which lasts under a second. More frames loop, so a wing beat needs no
+code. A character without the folder falls with `dragged`'s drawings.
+
+**The set is complete: 17 folders, 85 frames.** The only state with no drawing
 of its own is `error-api`, and that is deliberate.
 
 ### Notes per state

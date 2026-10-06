@@ -33,9 +33,11 @@ ERROR_API = "error-api"
 WAKE = "wake"
 SLEEP = "sleep"
 COMPACTING = "compacting"
-# The only state the session does not produce: the window imposes it while you
-# drag the avatar, and the `StateManager` never hears about it.
+# The states the session does not produce: the window imposes them, and the
+# `StateManager` never hears about them. `dragged` lasts while you hold the
+# avatar; `falling` is its entrance, dropping onto its spot at startup.
 DRAGGED = "dragged"
+FALLING = "falling"
 
 STATES = (
     IDLE,
@@ -55,11 +57,15 @@ STATES = (
     SLEEP,
     COMPACTING,
     DRAGGED,
+    FALLING,
 )
 
-# The states Claude Code can produce: everything except `dragged`. Derived, so
-# it cannot drift from `STATES`.
-SESSION_STATES = tuple(s for s in STATES if s != DRAGGED)
+# What the window imposes on its own, over whatever the session is doing.
+WINDOW_STATES = frozenset({DRAGGED, FALLING})
+
+# The states Claude Code can produce: everything the window does not impose.
+# Derived, so it cannot drift from `STATES`.
+SESSION_STATES = tuple(s for s in STATES if s not in WINDOW_STATES)
 
 SEPARATOR = "-"
 
@@ -69,6 +75,7 @@ PARENTS: dict[str, str] = {
     WAITING: THINKING,
     COMPACTING: THINKING,
     DRAGGED: WAITING,
+    FALLING: DRAGGED,
     SLEEP: IDLE_SLEEP,
 }
 
@@ -94,6 +101,7 @@ DESCRIPTIONS: dict[str, str] = {
     SLEEP: "falling asleep",
     COMPACTING: "tidying up the context",
     DRAGGED: "being carried around",
+    FALLING: "dropping in",
 }
 
 # --- Automatic transitions ---------------------------------------------------

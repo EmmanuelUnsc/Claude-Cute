@@ -59,8 +59,9 @@ def populate_menu(menu: QMenu, window: AvatarWindow) -> QMenu:
             choose.addAction(action)
 
     # Every state the session can produce; the ones without their own sprites
-    # are marked, which doubles as a checklist while drawing. `dragged` is not
-    # here: you preview it by dragging the avatar.
+    # are marked, which doubles as a checklist while drawing. `dragged` and
+    # `falling` are not here: you preview them by dragging the avatar and by
+    # starting the widget.
     own = set(window.engine.available_states())
     force = _submenu(menu, "Force state")
     for state in SESSION_STATES:

@@ -486,6 +486,102 @@ class TestStaysOnTop(BaseWindow):
         self.assertEqual(len(self.calls), 1)
 
 
+class TestDropIn(BaseWindow):
+    """At startup the dragon falls onto its spot instead of popping up."""
+
+    def setUp(self):
+        original = window_mod.entrance.animations_enabled
+        window_mod.entrance.animations_enabled = lambda: True
+        self.addCleanup(setattr, window_mod.entrance, "animations_enabled",
+                        original)
+
+    def dropped(self, **kwargs) -> tuple[AvatarWindow, QPoint]:
+        window = self.make(states=("idle", "falling"), **kwargs)
+        window.move_to_corner()
+        target = window.pos()
+        window.drop_in()
+        self.addCleanup(window._fall.stop)
+        return window, target
+
+    def land(self, window: AvatarWindow) -> None:
+        window._fall.setCurrentTime(window._fall.duration())
+        _app.processEvents()
+
+    def test_it_starts_above_the_screen(self):
+        window, target = self.dropped()
+        screen = window.screen().geometry()
+        self.assertLess(window.y(), screen.top())
+        self.assertEqual(window.x(), target.x())
+        self.assertTrue(window.isVisible())
+
+    def test_it_shows_the_fall(self):
+        window, _ = self.dropped()
+        self.assertEqual(window.engine.state, st.FALLING)
+
+    def test_it_lands_on_its_spot(self):
+        window, target = self.dropped()
+        self.land(window)
+        self.assertEqual(window.pos(), target)
+
+    def test_landing_hands_the_screen_back_to_the_truth(self):
+        window, _ = self.dropped()
+        window.manager.set_state(st.THINKING)
+        self.land(window)
+        self.assertEqual(window.engine.state, st.THINKING)
+
+    def test_the_fall_pose_is_painted_from_the_first_instant(self):
+        # Not one tick later: the first ~150 ms showed the resting pose up in
+        # the air, and the fall pose lingered on the ground after landing.
+        window, _ = self.dropped()
+        self.assertIs(window._frame, window.engine.current_frame())
+        self.assertEqual(window.engine.resolved_state, st.FALLING)
+        self.land(window)
+        self.assertEqual(window.engine.resolved_state, st.IDLE)
+        self.assertIs(window._frame, window.engine.current_frame())
+
+    def test_it_hops_in_its_resting_pose(self):
+        window, target = self.dropped()
+        distance, hop = window._fall_shape
+        mid_hop = window_mod.entrance.fall_ms(distance) + window_mod.entrance.hop_ms(hop) / 2
+        window._fall.setCurrentTime(round(mid_hop))
+        self.assertLess(window.y(), target.y(), "not in the air mid-hop")
+        self.assertEqual(window.engine.resolved_state, st.IDLE)
+
+    def test_the_clock_does_not_land_it_early(self):
+        # Same rule as dragging: the truth waits until the entrance is over.
+        # `waiting` skips the minimum hold, so only the entrance can stop it.
+        window, _ = self.dropped()
+        window.manager.set_state(st.WAITING)
+        window._on_tick()
+        self.assertEqual(window.engine.state, st.FALLING)
+
+    def test_catching_it_mid_air_keeps_it_there(self):
+        window, target = self.dropped()
+        window._fall.setCurrentTime(window._fall.duration() // 3)
+        caught = window.pos()
+        press = QMouseEvent(
+            QEvent.MouseButtonPress, QPointF(5, 5), QPointF(caught + QPoint(5, 5)),
+            Qt.LeftButton, Qt.LeftButton, Qt.NoModifier,
+        )
+        window.mousePressEvent(press)
+        self.assertFalse(window._fall.state() == window._fall.State.Running)
+        self.assertEqual(window.pos(), caught)
+        self.assertNotEqual(window.engine.state, st.FALLING)
+
+    def test_quitting_mid_air_remembers_where_it_was_headed(self):
+        config = self.temp_config()
+        window, target = self.dropped(config=config)
+        window.remember_position()
+        self.assertEqual(config.position, (target.x(), target.y()))
+
+    def test_with_animations_off_it_is_simply_there(self):
+        window_mod.entrance.animations_enabled = lambda: False
+        window, target = self.dropped()
+        self.assertEqual(window.pos(), target)
+        self.assertNotEqual(window.engine.state, st.FALLING)
+        self.assertTrue(window.isVisible())
+
+
 class TestMenu(BaseWindow):
     def test_the_menu_can_be_repopulated(self):
         from PySide6.QtWidgets import QMenu

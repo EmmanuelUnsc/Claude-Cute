@@ -5,16 +5,17 @@ from __future__ import annotations
 import sys
 import time
 
-from PySide6.QtCore import Qt, QPoint, QRect, QTimer
+from PySide6.QtCore import Qt, QPoint, QRect, QTimer, QVariantAnimation
 from PySide6.QtGui import QCursor, QGuiApplication, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
 from .animation_engine import AnimationEngine
+from . import entrance
 from . import menu as _menu
 from .config import Config
 from .smoothing import Smoothing
 from .state_manager import StateManager
-from .states import DRAGGED
+from .states import DRAGGED, FALLING
 
 MARGIN = 24  # gap from the edge of the screen
 
@@ -66,6 +67,9 @@ class AvatarWindow(QWidget):
         self._frame: QPixmap | None = engine.current_frame()
         self._smoothing = Smoothing(engine)
         self._on_top_at = time.monotonic()
+        # Where the entrance lands, while it is playing.
+        self._falling_to: QPoint | None = None
+        self._fall_shape = (0.0, 0.0)  # distance, hop
         # One menu, refilled on each opening rather than recreated.
         self._menu = QMenu(self)
 
@@ -92,6 +96,12 @@ class AvatarWindow(QWidget):
         self._unhide.setSingleShot(True)
         self._unhide.timeout.connect(self.show_again)
 
+        # The entrance moves the window at the screen's own pace: the frame
+        # timer runs at 100-300 ms and would make the fall stutter.
+        self._fall = QVariantAnimation(self)
+        self._fall.valueChanged.connect(self._fall_step)
+        self._fall.finished.connect(self._landed)
+
     # --- animation loop -----------------------------------------------------
 
     def _on_tick(self) -> None:
@@ -101,9 +111,9 @@ class AvatarWindow(QWidget):
             self.quit()
             return
         truth = self.manager.tick()
-        # While dragging, the screen shows the drag; the truth keeps advancing
-        # underneath and is picked up again on release.
-        if not self._dragging:
+        # While dragging or dropping in, the screen shows that; the truth keeps
+        # advancing underneath and is picked up again at the end.
+        if not self._dragging and self._falling_to is None:
             if truth != self.engine.state and self._smoothing.can_replace(truth):
                 self._show(truth)
         self._frame = self.engine.advance()
@@ -136,6 +146,11 @@ class AvatarWindow(QWidget):
     # --- interaction --------------------------------------------------------
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
+        # Caught in mid-air: it stays where it was caught.
+        if self._falling_to is not None:
+            self._fall.stop()
+            self._falling_to = None
+            self._show(self.manager.state)
         if event.button() == Qt.LeftButton:
             self._drag_offset = (
                 event.globalPosition().toPoint() - self.frameGeometry().topLeft()
@@ -170,6 +185,66 @@ class AvatarWindow(QWidget):
     def closeEvent(self, event) -> None:  # noqa: N802
         self.remember_position()
         super().closeEvent(event)
+
+    # --- entrance -----------------------------------------------------------
+
+    def drop_in(self) -> None:
+        """Shows the avatar by dropping it onto its spot from above the screen.
+
+        From the top edge of the monitor it lands on, straight down. Skipped
+        when there is no room to fall or the system has animations turned off.
+        """
+        target = self.pos()
+        screen = QGuiApplication.screenAt(self.geometry().center()) or self.screen()
+        start = screen.geometry().top() - self.height()
+        distance = float(target.y() - start)
+        if distance <= 0 or not entrance.animations_enabled():
+            self.show()
+            return
+        hop = self.height() * entrance.HOP_SHARE
+        self._falling_to = target
+        self._fall_shape = (distance, hop)
+        self.move(target.x(), start)
+        self._show(FALLING)
+        self._repaint_now()
+        total = entrance.fall_ms(distance) + entrance.hop_ms(hop)
+        self._fall.setStartValue(0.0)
+        self._fall.setEndValue(total)
+        self._fall.setDuration(max(1, round(total)))
+        self.show()
+        self._fall.start()
+
+    def _fall_step(self, ms) -> None:
+        if self._falling_to is None:
+            return
+        distance, hop = self._fall_shape
+        height = entrance.height_at(float(ms), distance, hop)
+        self.move(self._falling_to.x(), self._falling_to.y() - round(height))
+        # It touches down in its resting pose and hops in it: the wings-open
+        # pose on the ground pokes its tail into the taskbar.
+        if ms >= entrance.fall_ms(distance) and self.engine.state == FALLING:
+            self._touch_down()
+
+    def _landed(self) -> None:
+        if self._falling_to is None:
+            return
+        self.move(self._falling_to)
+        if self.engine.state == FALLING:
+            self._touch_down()
+        self._falling_to = None
+
+    def _touch_down(self) -> None:
+        self._show(self.manager.state)
+        self._repaint_now()
+
+    def _repaint_now(self) -> None:
+        """Paints the current state's frame now instead of on the next tick.
+
+        The frame clock runs at 100-300 ms; at the ends of the entrance that
+        is long enough to see the wrong pose in the air or on the ground.
+        """
+        self._frame = self.engine.current_frame()
+        self.update()
 
     # --- menu ---------------------------------------------------------------
 
@@ -304,7 +379,9 @@ class AvatarWindow(QWidget):
     def remember_position(self) -> None:
         if self.config is None:
             return
-        point = self.frameGeometry().topLeft()
+        # Mid-entrance the window is somewhere in the air; its spot is where
+        # it is headed.
+        point = self._falling_to or self.frameGeometry().topLeft()
         self.config.position = (point.x(), point.y())
         self.config.save()
 
