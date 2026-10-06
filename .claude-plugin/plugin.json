@@ -2,7 +2,7 @@
   "name": "claude-cute",
   "displayName": "Claude Cute",
   "description": "A pixel-art dragon on your desktop that mirrors what your Claude Code session is doing, in real time.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": {
     "name": "Emmanuel Unsc",
     "url": "https://github.com/EmmanuelUnsc"
