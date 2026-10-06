@@ -198,14 +198,19 @@ left, and comes out of it.
   `src/entrance.py`); draw it at another angle and change that number with it.
   The rock sits where the character's body is at rest, so the impact lands on
   the right spot.
-- `landing` (9 frames, one pass) is the impact, the shell cracking and the
-  dragon materialising. **Its last frame should be the character's first
-  `idle` frame**, so handing over to the session is seamless.
+- `landing` (6 frames, one pass) is the impact, the shell cracking and
+  splitting around her shape, and the dragon settling into herself. **Its last
+  frame should be the character's first `idle` frame**, so handing over to the
+  session is seamless.
+
+Both are drawn flat, in the same few blues as Dragoncita's other effects.
+Dragoncita with shaders has its own, more detailed meteor (nine landing
+frames).
 
 A character without these folders dives with `dragged`'s drawings and lands
 with `wake`'s.
 
-**The set is complete: 18 folders, 99 frames.** The only state with no drawing
+**The set is complete: 18 folders, 96 frames.** The only state with no drawing
 of its own is `error-api`, and that is deliberate.
 
 ### Notes per state

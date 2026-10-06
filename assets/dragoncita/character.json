@@ -14,7 +14,7 @@
     "sleep": 200,
     "compacting": 130,
     "falling": 70,
-    "landing": 90
+    "landing": 110
   },
   "loop_from": {
     "dragged": 6
