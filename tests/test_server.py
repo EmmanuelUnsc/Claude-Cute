@@ -27,6 +27,7 @@ from src.server import (  # noqa: E402
     serve_on_free_port,
     start_server,
 )
+from src import server as server_mod  # noqa: E402
 from src.state_manager import StateManager  # noqa: E402
 
 BASE = 8930  # the tests' own range
@@ -164,6 +165,22 @@ class TestProtocol(BaseServer):
         )
         self.assertEqual(code, 200)
         self.assertEqual(body["state"], "working-bash")
+
+    def test_a_bad_pid_does_not_cost_the_event(self):
+        self.start(BASE + 75)
+        code, body = self.request(
+            BASE + 75,
+            json.dumps({"event": "PreToolUse", "tool": "Bash", "session": "s1",
+                        "pid": "not a pid"}).encode(),
+        )
+        self.assertEqual(code, 200)
+        self.assertEqual(body["state"], "working-bash")
+
+    def test_only_real_pids_get_through(self):
+        self.assertEqual(server_mod._pid(4242), 4242)
+        self.assertEqual(server_mod._pid("4242"), 4242)
+        for bad in (None, "x", 0, -1, 2**40, True, [1], 1.5e20):
+            self.assertIsNone(server_mod._pid(bad), bad)
 
     def test_it_rejects_anything_but_json(self):
         # Without this, any web page could POST to it from the browser.

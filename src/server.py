@@ -25,6 +25,21 @@ PORTS_TO_TRY = 6
 MAX_BODY = 8192
 
 
+def _pid(value: object) -> int | None:
+    """A process id from the payload, or None for anything that is not one.
+
+    Lenient on purpose, like `ts`: a bad pid costs the session its process
+    watch, never the event itself.
+    """
+    if isinstance(value, bool):
+        return None
+    try:
+        pid = int(value)
+    except (TypeError, ValueError):
+        return None
+    return pid if 0 < pid < 2**32 else None
+
+
 class _Handler(BaseHTTPRequestHandler):
     manager: StateManager  # injected when the class is created
 
@@ -99,6 +114,7 @@ class _Handler(BaseHTTPRequestHandler):
                     str(tool) if tool else None,
                     ts,
                     str(session) if session else None,
+                    _pid(payload.get("pid")),
                 )
         except ValueError as exc:
             self._json(400, {"error": str(exc)})

@@ -32,6 +32,16 @@ def _url() -> str:
 
 URL = _url()
 
+
+def _claude_pid() -> int | None:
+    """The Claude Code process above this hook. Never raises."""
+    try:
+        from claude_process import claude_pid
+
+        return claude_pid()
+    except Exception:  # noqa: BLE001 — swallowing everything *is* the policy
+        return None
+
 # The widget is always on loopback, so requests go out with proxies turned off.
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -71,6 +81,11 @@ def main() -> int:
         body["tool"] = str(tool)
     if session:
         body["session"] = str(session)
+        # Lets the widget notice the session is gone even without a
+        # `SessionEnd`. Only with a session: a pid alone means nothing.
+        pid = _claude_pid()
+        if pid:
+            body["pid"] = pid
 
     request = urllib.request.Request(
         URL,

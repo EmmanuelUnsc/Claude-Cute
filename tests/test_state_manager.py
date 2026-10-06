@@ -501,6 +501,20 @@ class TestTheMostUrgentSessionShows(unittest.TestCase):
         )
 
 
+class TestTheProcessBehindASession(unittest.TestCase):
+    def test_the_pid_is_kept_on_the_session(self):
+        m = StateManager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
+        self.assertEqual(m._sessions["A"].pid, 4242)
+
+    def test_an_event_without_one_does_not_forget_it(self):
+        # A hook that failed to find the process this time says nothing new.
+        m = StateManager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
+        m.handle_event("PreToolUse", "Bash", ts=2, session="A")
+        self.assertEqual(m._sessions["A"].pid, 4242)
+
+
 class TestNothingGetsStuck(unittest.TestCase):
     """No active state should be able to stay forever."""
 

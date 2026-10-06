@@ -50,6 +50,8 @@ class _Track:
     # A session counts once it *does* something, not when it opens: the
     # sessions an editor spawns and drops on startup never count.
     counts: bool = False
+    # The Claude Code process behind the session, when the hook found it.
+    pid: int | None = None
 
     def set(self, state: str) -> None:
         # The clock restarts even on the same state: a repeated event is news,
@@ -130,6 +132,7 @@ class StateManager:
         tool_name: str | None = None,
         ts: float | None = None,
         session: str | None = None,
+        pid: int | None = None,
     ) -> str:
         """Applies a Claude Code event to its session, and returns what shows.
 
@@ -141,6 +144,9 @@ class StateManager:
 
         Turn stragglers — a turn-scoped event arriving after that session's
         `Stop` belongs to the previous turn, not to new activity.
+
+        `pid` — the Claude Code process behind the session, so its death can
+        end the session when no `SessionEnd` does.
         """
         # A timestamp from the future is a broken clock, not an ordering
         # claim: the event still applies, only its `when` is dropped.
@@ -163,6 +169,8 @@ class StateManager:
             else:
                 track = self._sessions.setdefault(session, _Track())
                 track.seen_at = time.monotonic()
+                if pid is not None:
+                    track.pid = pid
                 if event != "SessionStart":
                     track.counts = True
                     self._ever_seen = True

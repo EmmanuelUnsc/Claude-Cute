@@ -321,7 +321,8 @@ Claude Cute/
 │   ├── cute-python.sh       finds a Python 3.10+ so nobody has to be asked
 │   ├── runtime.py           fetches PySide6 once, into its own folder
 │   ├── launch.py            run at session start; makes sure it is running
-│   └── notify.py            run by Claude Code; tells the widget
+│   ├── notify.py            run by Claude Code; tells the widget
+│   └── claude_process.py    finds the Claude Code process behind a hook
 │
 ├── assets/<character>/<state>/frame_01.png …
 └── tests/
@@ -762,7 +763,8 @@ Claude Cute/
 │   ├── cute-python.sh       busca un Python 3.10+ para no preguntarle a nadie
 │   ├── runtime.py           baja PySide6 una vez, a su propia carpeta
 │   ├── launch.py            corre al abrir sesión; se asegura de que esté vivo
-│   └── notify.py            lo ejecuta Claude Code; avisa al widget
+│   ├── notify.py            lo ejecuta Claude Code; avisa al widget
+│   └── claude_process.py    encuentra el proceso de Claude Code detrás del hook
 │
 ├── assets/
 │   └── dragoncita/          un personaje = una carpeta

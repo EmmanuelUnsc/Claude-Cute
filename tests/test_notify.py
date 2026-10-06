@@ -180,6 +180,39 @@ class TestSending(BaseSending):
         self.assertEqual(received[0]["tool"], "Bash")
         self.assertEqual(received[0]["session"], "s1")
 
+    def found_pid(self, value) -> None:
+        original = notify._claude_pid
+        notify._claude_pid = value
+        self.addCleanup(setattr, notify, "_claude_pid", original)
+
+    def test_it_sends_the_claude_process(self):
+        received = self.widget()
+        self.found_pid(lambda: 4242)
+        self.run_hook()
+        self.assertEqual(received[0]["pid"], 4242)
+
+    def test_no_process_found_sends_no_pid(self):
+        received = self.widget()
+        self.found_pid(lambda: None)
+        self.run_hook()
+        self.assertNotIn("pid", received[0])
+
+    def test_a_failing_search_still_exits_zero(self):
+        # The golden rule holds for the new code too: a broken process walk
+        # costs the pid, never the event.
+        received = self.widget()
+        original = sys.modules.get("claude_process")
+        sys.modules["claude_process"] = None  # makes the import fail
+        try:
+            self.assertEqual(self.run_hook(), 0)
+        finally:
+            if original is None:
+                sys.modules.pop("claude_process", None)
+            else:
+                sys.modules["claude_process"] = original
+        self.assertEqual(len(received), 1)
+        self.assertNotIn("pid", received[0])
+
     def test_a_configured_proxy_never_sees_the_events(self):
         """Regression: loopback is not in the default proxy bypass list.
 
