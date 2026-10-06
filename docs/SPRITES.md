@@ -205,7 +205,7 @@ left, and comes out of it.
 A character without these folders dives with `dragged`'s drawings and lands
 with `wake`'s.
 
-**The set is complete: 18 folders, 97 frames.** The only state with no drawing
+**The set is complete: 18 folders, 99 frames.** The only state with no drawing
 of its own is `error-api`, and that is deliberate.
 
 ### Notes per state
