@@ -78,9 +78,9 @@ moving or renaming things cannot break them.
 
 Then **open a new conversation.** Hooks are read when a session starts, so the
 one you installed from never got them — reopening that same conversation works
-too. On that first session the graphics library comes down into the plugin's
-own folder: about 100 MB, so give it a couple of minutes before the dragon
-turns up. Your system Python is never touched.
+too. On that first session the graphics library comes down into
+`~/.claude/claude-cute/`: about 100 MB, so give it a couple of minutes before
+the dragon turns up. Your system Python is never touched.
 
 > **On Windows this needs [Git for Windows](https://git-scm.com/downloads/win).**
 > The hooks run through a small shell script and Git Bash is what runs it.
@@ -529,7 +529,7 @@ carpeta, así que mover o renombrar cosas no puede romperlos.
 Después **abre una conversación nueva.** Los hooks se leen al empezar una
 sesión, así que aquella desde la que instalaste nunca los recibió — volver a
 abrir esa misma también sirve. En esa primera sesión se baja la biblioteca
-gráfica a la carpeta del plugin: unos 100 MB, así que dale un par de minutos
+gráfica a `~/.claude/claude-cute/`: unos 100 MB, así que dale un par de minutos
 antes de que aparezca el dragón. Tu Python del sistema no se toca nunca.
 
 > **En Windows esto necesita [Git for Windows](https://git-scm.com/downloads/win).**
