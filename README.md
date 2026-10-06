@@ -336,6 +336,10 @@ Each character is a folder inside `assets/`, with one subfolder per state and
 an optional `character.json` setting its name, scale and speeds. If there is
 more than one, pick it from **right click → Character**.
 
+Two come with it: **Dragoncita**, the default, and **Dragoncita (Opus)**, the
+same dragon remastered by Claude with moonlight on her edges so she still reads
+on a dark desktop.
+
 Adding one requires no code changes: drawing `idle/` is enough, because
 everything else inherits.
 
@@ -446,7 +450,8 @@ MIT — see [LICENSE](LICENSE).
 
 **The sprites too.** Dragoncita was drawn for this project by the author
 credited in `assets/dragoncita/character.json`, and ships under the same
-licence as the code. Anyone adding a character is expected to fill in that
+licence as the code. The meteor entrance and the Opus remaster were drawn by
+Claude on her design, credited the same way. Anyone adding a character is expected to fill in that
 `author` field with their own name.
 
 ---
@@ -798,6 +803,10 @@ Cada personaje es una carpeta dentro de `assets/`, con una subcarpeta por
 estado y un `character.json` opcional que fija su nombre, escala y
 velocidades. Si hay más de uno, se elige desde **click derecho → Character**.
 
+Vienen dos: **Dragoncita**, la de siempre, y **Dragoncita (Opus)**, el mismo
+dragón remasterizado por Claude con luz de luna en los bordes, para que se lea
+también sobre un escritorio oscuro.
+
 Agregar uno no requiere tocar código: alcanza con dibujar `idle/`, porque todo
 lo demás hereda.
 
@@ -930,5 +939,6 @@ MIT. Ver [LICENSE](LICENSE).
 
 **Los sprites también.** La dragoncita se dibujó para este proyecto, con el
 crédito en `assets/dragoncita/character.json`, y va bajo la misma licencia que
-el código. Quien agregue un personaje completa ese campo `author` con su
+el código. La entrada del meteorito y la versión Opus las dibujó Claude sobre
+su diseño, con el crédito de la misma forma. Quien agregue un personaje completa ese campo `author` con su
 nombre.

@@ -1,0 +1,22 @@
+{
+  "name": "Dragoncita (Opus)",
+  "author": "Claude (Opus 5.5), on Emmanuel Unsc's design",
+  "scale": 2,
+  "ms_per_frame": {
+    "idle": 220,
+    "idle-sleep": 320,
+    "thinking": 120,
+    "working": 100,
+    "waiting": 140,
+    "done": 160,
+    "error": 110,
+    "wake": 150,
+    "sleep": 200,
+    "compacting": 130,
+    "falling": 70,
+    "landing": 90
+  },
+  "loop_from": {
+    "dragged": 6
+  }
+}
