@@ -299,16 +299,27 @@ class TestSeveralSessions(unittest.TestCase):
         self.assertEqual(m.handle_event("PostToolUse", ts=3, session="A"),
                          st.THINKING)
 
-    def test_silence_does_not_release_the_notice(self):
-        # Silence is exactly what waiting on a person looks like, so the
-        # silence net spares a session in `waiting`. It still ends: by its
-        # eight-hour expiry, by the session closing, or by its process dying.
+    def test_silence_alone_does_not_release_the_notice(self):
+        # Silence is exactly what waiting on a person looks like. A session
+        # that merely opens is not one that needs the dragon.
         sm.SESSION_ALIVE = 0.0
         m = StateManager()
         m.handle_event("UserPromptSubmit", ts=1, session="A")
         m.handle_event("Notification", ts=2, session="A")
         self.assertEqual(m.handle_event("SessionStart", ts=3, session="B"),
                          st.WAITING)
+
+    def test_an_abandoned_question_gives_way_to_real_work(self):
+        # If the notice's owner stops showing signs of life and nobody can
+        # vouch for its process, it cannot block everyone else for 8 hours.
+        sm.SESSION_ALIVE = 0.0
+        m = StateManager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A")
+        m.handle_event("Notification", ts=2, session="A")
+        self.assertEqual(
+            m.handle_event("PreToolUse", "Bash", ts=3, session="B"),
+            st.WORKING_BASH,
+        )
 
     def test_closing_the_session_releases_the_notice(self):
         m = StateManager()
@@ -577,6 +588,17 @@ class TestTheProcessBehindASession(unittest.TestCase):
         m.handle_event("Stop", ts=2, session="A")
         self.assertNotIn(m.tick(), (st.SLEEP, st.IDLE_SLEEP))
         self.assertFalse(m.abandoned())
+
+    def test_a_live_process_keeps_its_question_over_other_work(self):
+        # Its terminal is still open, so someone may still answer it.
+        sm.SESSION_ALIVE = 0.0
+        m = self.manager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A", pid=1)
+        m.handle_event("Notification", ts=2, session="A")
+        self.assertEqual(
+            m.handle_event("PreToolUse", "Bash", ts=3, session="B", pid=2),
+            st.WAITING,
+        )
 
     def test_when_the_system_will_not_say_silence_decides(self):
         sm.SESSION_ALIVE = 0.0

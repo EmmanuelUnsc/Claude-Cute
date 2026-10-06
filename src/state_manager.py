@@ -286,19 +286,36 @@ class StateManager:
         - **Its process is alive.** Then it is not over, however quiet: you
           reading code for an hour must not put the dragon to sleep.
         - **Nobody can say** (no pid, or the system refused): silence decides,
-          after `SESSION_ALIVE`. A session in `waiting` is spared, since
-          silence is exactly what waiting on a person looks like.
+          after `SESSION_ALIVE`. A session in `waiting` is the exception while
+          it is the only one: silence is exactly what waiting on a person
+          looks like, and its question holds the widget open. Once another
+          session needs the dragon, a silent question nobody can vouch for is
+          let go, or it would sit on top of everyone for eight hours.
 
         `keep` spares the session whose event is being handled right now.
         """
         limit = time.monotonic() - SESSION_ALIVE
+        process = {s: self._process_alive(t) for s, t in self._sessions.items()}
+
+        def vouched(session: str, track: _Track) -> bool:
+            return (
+                session == keep
+                or process[session] is True
+                or track.seen_at >= limit
+            )
+
         for session, track in list(self._sessions.items()):
-            if session == keep:
+            if session == keep or session not in self._sessions:
                 continue
-            process = self._process_alive(track)
-            if process is False:
+            if process[session] is False:
                 self._leave(session)
-            elif process is None and track.state != WAITING and track.seen_at < limit:
+            elif vouched(session, track):
+                continue
+            elif track.state != WAITING or any(
+                other.counts and vouched(name, other)
+                for name, other in self._sessions.items()
+                if name != session
+            ):
                 self._leave(session)
         # Pruning is also the moment the widget can find out it was left alone.
         if any(t.counts for t in self._sessions.values()):
