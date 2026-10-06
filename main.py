@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from src.animation_engine import AnimationEngine
 from src.avatar_window import AvatarWindow
 from src.config import FILENAME as CONFIG_FILENAME, Config
+from src.processes import ProcessWatch
 from src.server import HOST, PORT, AlreadyRunning, serve_on_free_port
 from src.state_manager import StateManager
 
@@ -61,7 +62,7 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(True)
 
     config = Config(ROOT / CONFIG_FILENAME).load()
-    manager = StateManager()
+    manager = StateManager(processes=ProcessWatch())
     engine = AnimationEngine(ASSETS, config.character)
 
     _report(engine)

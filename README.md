@@ -309,6 +309,7 @@ Claude Cute/
 │   ├── server.py            local HTTP server that receives the events
 │   ├── states.py            which states exist, what inherits from what
 │   ├── state_manager.py     the live state machine; source of truth
+│   ├── processes.py         notices a Claude Code that closed without saying so
 │   ├── animation_engine.py  loads the PNGs and hands out the current frame
 │   ├── character.py         reads and validates character.json
 │   ├── avatar_window.py     the overlay window
@@ -751,6 +752,7 @@ Claude Cute/
 │   ├── server.py            servidor HTTP local que recibe los eventos
 │   ├── states.py            qué estados hay, quién hereda de quién
 │   ├── state_manager.py     máquina de estados; fuente de verdad
+│   ├── processes.py         nota cuando Claude Code se cerró sin avisar
 │   ├── animation_engine.py  carga los PNG y entrega el frame que toca
 │   ├── character.py         lee y valida el character.json
 │   ├── avatar_window.py     la ventana overlay

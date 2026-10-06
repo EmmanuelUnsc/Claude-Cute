@@ -501,18 +501,108 @@ class TestTheMostUrgentSessionShows(unittest.TestCase):
         )
 
 
+class FakeProcesses:
+    """Stands in for `ProcessWatch`: each pid answers what the test says."""
+
+    def __init__(self):
+        self.status: dict[int, bool | None] = {}
+        self.forgotten: list[int] = []
+
+    def alive(self, pid):
+        return self.status.get(pid, True)
+
+    def forget(self, pid):
+        self.forgotten.append(pid)
+
+
 class TestTheProcessBehindASession(unittest.TestCase):
+    """A session ends when its process does, `SessionEnd` or not."""
+
+    def setUp(self):
+        self._alive = sm.SESSION_ALIVE
+        self.processes = FakeProcesses()
+
+    def tearDown(self):
+        sm.SESSION_ALIVE = self._alive
+
+    def manager(self) -> StateManager:
+        return StateManager(processes=self.processes)
+
     def test_the_pid_is_kept_on_the_session(self):
-        m = StateManager()
+        m = self.manager()
         m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
         self.assertEqual(m._sessions["A"].pid, 4242)
 
     def test_an_event_without_one_does_not_forget_it(self):
         # A hook that failed to find the process this time says nothing new.
-        m = StateManager()
+        m = self.manager()
         m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
         m.handle_event("PreToolUse", "Bash", ts=2, session="A")
         self.assertEqual(m._sessions["A"].pid, 4242)
+
+    def test_closing_the_terminal_puts_it_to_sleep(self):
+        # The case this exists for: no `SessionEnd`, just a dead process.
+        m = self.manager()
+        m.handle_event("PreToolUse", "Bash", ts=1, session="A", pid=4242)
+        self.processes.status[4242] = False
+        self.assertEqual(m.tick(), st.SLEEP)
+        self.assertNotIn("A", m._sessions)
+
+    def test_one_terminal_closing_leaves_the_others(self):
+        m = self.manager()
+        m.handle_event("PreToolUse", "Bash", ts=1, session="A", pid=1)
+        m.handle_event("PreToolUse", "Edit", ts=2, session="B", pid=2)
+        self.processes.status[2] = False
+        self.assertEqual(m.tick(), st.WORKING_BASH)
+
+    def test_a_dead_process_takes_its_question_with_it(self):
+        # Nobody is left to answer it, unlike a merely silent session.
+        m = self.manager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A", pid=1)
+        m.handle_event("PreToolUse", "Bash", ts=2, session="B", pid=2)
+        m.handle_event("Notification", ts=3, session="A")
+        self.processes.status[1] = False
+        self.assertEqual(m.tick(), st.WORKING_BASH)
+
+    def test_a_live_process_outlasts_any_silence(self):
+        # You reading code for an hour, terminal open: not over.
+        sm.SESSION_ALIVE = 0.0
+        m = self.manager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
+        m.handle_event("Stop", ts=2, session="A")
+        self.assertNotIn(m.tick(), (st.SLEEP, st.IDLE_SLEEP))
+        self.assertFalse(m.abandoned())
+
+    def test_when_the_system_will_not_say_silence_decides(self):
+        sm.SESSION_ALIVE = 0.0
+        m = self.manager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
+        self.processes.status[4242] = None
+        self.assertEqual(m.tick(), st.SLEEP)
+
+    def test_a_dead_process_starts_the_closing_clock(self):
+        original = sm.CLOSE_AFTER
+        sm.CLOSE_AFTER = 0.0
+        try:
+            m = self.manager()
+            m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
+            self.processes.status[4242] = False
+            self.assertTrue(m.abandoned())
+        finally:
+            sm.CLOSE_AFTER = original
+
+    def test_leaving_lets_go_of_the_process(self):
+        # On Windows that closes the handle that pins the pid.
+        m = self.manager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
+        m.handle_event("SessionEnd", ts=2, session="A")
+        self.assertEqual(self.processes.forgotten, [4242])
+
+    def test_without_a_watcher_nothing_changes(self):
+        # Silence alone, as before: what a manager built with no watcher does.
+        m = StateManager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A", pid=4242)
+        self.assertEqual(m.tick(), st.THINKING)
 
 
 class TestNothingGetsStuck(unittest.TestCase):

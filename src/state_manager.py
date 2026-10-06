@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Protocol
 
 from .states import (
     CLOCK_SKEW,
@@ -76,6 +76,14 @@ class _Track:
                 self.set(IDLE)
 
 
+class Processes(Protocol):
+    """What the manager needs from a process watcher (`processes.py`)."""
+
+    def alive(self, pid: int) -> bool | None: ...
+
+    def forget(self, pid: int) -> None: ...
+
+
 class StateManager:
     """Tracks every session and decides which one the dragon shows.
 
@@ -83,7 +91,11 @@ class StateManager:
     from Qt's.
     """
 
-    def __init__(self, on_change: Callable[[str], None] | None = None) -> None:
+    def __init__(
+        self,
+        on_change: Callable[[str], None] | None = None,
+        processes: Processes | None = None,
+    ) -> None:
         # One track per session, plus the floor: events with no session (curl,
         # an older hook), states forced by hand, and the sleep once everyone
         # has gone. It never leaves and never counts as a session.
@@ -98,6 +110,8 @@ class StateManager:
         self._emptied_at: float | None = None
         self._lock = threading.Lock()
         self._on_change = on_change
+        # Without one, sessions end only by `SessionEnd` or by silence.
+        self._processes = processes
 
     @property
     def state(self) -> str:
@@ -169,8 +183,8 @@ class StateManager:
             else:
                 track = self._sessions.setdefault(session, _Track())
                 track.seen_at = time.monotonic()
-                if pid is not None:
-                    track.pid = pid
+                if pid is not None and pid != track.pid:
+                    self._watch(track, pid)
                 if event != "SessionStart":
                     track.counts = True
                     self._ever_seen = True
@@ -232,9 +246,28 @@ class StateManager:
         elif state in (DONE, ERROR_API):
             track.turn_ended_at = time.monotonic()
 
+    def _watch(self, track: _Track, pid: int) -> None:
+        """Ties a session to its process, starting the watch right away.
+
+        Asking now, while the hook's process is surely alive, is what pins the
+        pid on Windows before anything else could reuse it.
+        """
+        if self._processes is not None:
+            if track.pid is not None:
+                self._processes.forget(track.pid)
+            self._processes.alive(pid)
+        track.pid = pid
+
+    def _process_alive(self, track: _Track) -> bool | None:
+        if self._processes is None or track.pid is None:
+            return None
+        return self._processes.alive(track.pid)
+
     def _leave(self, session: str) -> None:
         """Drops a session; if it was the last one that counted, sleep."""
         track = self._sessions.pop(session, None)
+        if track is not None and track.pid is not None and self._processes:
+            self._processes.forget(track.pid)
         # Opened and closed having done nothing: its leaving means nothing.
         if track is None or not track.counts:
             return
@@ -242,16 +275,30 @@ class StateManager:
             self._floor.set(SLEEP)
 
     def _alive(self, keep: str | None = None) -> None:
-        """Forgets silent sessions and keeps the closing clock up to date.
+        """Forgets the sessions that are over and keeps the closing clock up
+        to date.
 
-        The safety net for a `SessionEnd` that never arrives. A session in
-        `waiting` is never silent-dead: silence is exactly what waiting on a
-        person looks like, and `waiting` has its own eight-hour expiry. `keep`
-        spares the session whose event is being handled right now.
+        The nets for a `SessionEnd` that never arrives, best first:
+
+        - **Its process is gone.** Seconds after the terminal or the app
+          closes, and it covers a pending `waiting` too: nobody is left to
+          answer it.
+        - **Its process is alive.** Then it is not over, however quiet: you
+          reading code for an hour must not put the dragon to sleep.
+        - **Nobody can say** (no pid, or the system refused): silence decides,
+          after `SESSION_ALIVE`. A session in `waiting` is spared, since
+          silence is exactly what waiting on a person looks like.
+
+        `keep` spares the session whose event is being handled right now.
         """
         limit = time.monotonic() - SESSION_ALIVE
         for session, track in list(self._sessions.items()):
-            if session != keep and track.state != WAITING and track.seen_at < limit:
+            if session == keep:
+                continue
+            process = self._process_alive(track)
+            if process is False:
+                self._leave(session)
+            elif process is None and track.state != WAITING and track.seen_at < limit:
                 self._leave(session)
         # Pruning is also the moment the widget can find out it was left alone.
         if any(t.counts for t in self._sessions.values()):
