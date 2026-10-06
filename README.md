@@ -314,6 +314,7 @@ Claude Cute/
 │   ├── character.py         reads and validates character.json
 │   ├── avatar_window.py     the overlay window
 │   ├── smoothing.py         how long each animation is held
+│   ├── entrance.py          the drop onto its spot at startup
 │   ├── menu.py              the right-click menu
 │   └── config.py            preferences that survive a restart
 │
@@ -757,6 +758,7 @@ Claude Cute/
 │   ├── character.py         lee y valida el character.json
 │   ├── avatar_window.py     la ventana overlay
 │   ├── smoothing.py         cuánto se deja ver cada animación
+│   ├── entrance.py          la caída a su lugar al arrancar
 │   ├── menu.py              el menú del click derecho
 │   └── config.py            preferencias que sobreviven al reinicio
 │
