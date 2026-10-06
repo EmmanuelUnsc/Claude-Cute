@@ -37,8 +37,8 @@ The third one is what to use for real testing: it goes through `EVENTS`,
 
 | State | Triggered by | How to really cause it | Lasts | Then |
 |---|---|---|---|---|
-| `idle` | Nothing / expiry / `PostCompact` | Stop working | until the next event | `idle-sleep` after 300 s |
-| `idle-sleep` | 300 s in `idle` | Wait five minutes | until the next event | — |
+| `idle` | Nothing / expiry / `PostCompact` | Stop working | until the next event | — it no longer falls asleep on its own |
+| `idle-sleep` | Every session gone (after `sleep`) | Close your last Claude Code session | until the next event | — |
 | `thinking` | `UserPromptSubmit`, `PostToolUse`, `SubagentStop`, `TaskCompleted`, `PermissionDenied`, `PostToolBatch` | Send a prompt | until the next event | safety net after 45 s |
 | `working` | `PreToolUse` with an **unclassified** tool | Use an MCP tool, `Skill`, `ToolSearch`… | while it runs | safety net after 120 s |
 | `working-bash` | `PreToolUse` with `Bash`, `BashOutput`, `KillShell`, `PowerShell` | Ask for a terminal command | while it runs | 120 s |

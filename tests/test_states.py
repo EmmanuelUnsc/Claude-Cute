@@ -238,6 +238,32 @@ class TestTheTwoInheritances(unittest.TestCase):
             st.PARENTS.update(original)
 
 
+class TestPriority(unittest.TestCase):
+    def test_every_session_state_has_a_rank(self):
+        # A state left out would rank 0, below `idle`, and never be seen while
+        # another session sat idle.
+        for state in st.SESSION_STATES:
+            self.assertTrue(
+                any(k in st.PRIORITY for k in st.kinds(state)),
+                f"{state} has no priority",
+            )
+
+    def test_a_question_outranks_everything(self):
+        top = st.priority(st.WAITING)
+        for state in st.SESSION_STATES:
+            if state != st.WAITING:
+                self.assertLess(st.priority(state), top, state)
+
+    def test_the_working_family_shares_a_rank(self):
+        for state in (st.WORKING_BASH, st.WORKING_EDIT, st.WORKING_READ,
+                      st.WORKING_WEB, st.WORKING_AGENT):
+            self.assertEqual(st.priority(state), st.priority(st.WORKING))
+
+    def test_sleeping_is_what_is_left_when_nobody_is_around(self):
+        self.assertLess(st.priority(st.SLEEP), st.priority(st.IDLE))
+        self.assertLess(st.priority(st.IDLE_SLEEP), st.priority(st.IDLE))
+
+
 class TestCompactingIsNotStalled(unittest.TestCase):
     def test_it_outlasts_the_generic_safety_net(self):
         # A compaction is silent until `PostCompact` and routinely runs past

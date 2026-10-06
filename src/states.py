@@ -116,8 +116,35 @@ TRANSIENTS: dict[str, tuple[float, str]] = {
 # list to keep in sync.
 ONE_SHOT = frozenset(TRANSIENTS)
 
-# Seconds of resting before the dragon falls asleep.
-SLEEP_AFTER = 300.0
+# --- Several sessions at once -------------------------------------------------
+
+# Every session keeps its own state and the dragon shows the most urgent one.
+# Higher wins; a tie goes to whichever changed last. Looked up through
+# `kinds()`, so every `working-*` inherits `working`'s rank.
+#
+# `sleep` and `idle-sleep` rank lowest: they are not something a session does
+# but what is left once nobody is around.
+PRIORITY: dict[str, int] = {
+    WAITING: 9,  # a person is needed, so nothing hides it
+    ERROR_API: 8,
+    ERROR: 7,
+    DONE: 6,  # brief, and the only way to learn that another session finished
+    COMPACTING: 5,
+    WORKING: 4,
+    THINKING: 3,
+    WAKE: 2,  # opening a session should not interrupt one that works
+    IDLE: 1,
+    SLEEP: 0,
+    IDLE_SLEEP: 0,
+}
+
+
+def priority(state: str) -> int:
+    """How urgent `state` is when several sessions compete for the dragon."""
+    for candidate in kinds(state):
+        if candidate in PRIORITY:
+            return PRIORITY[candidate]
+    return 0
 
 # Safety net: seconds an active state may go without news before giving up and
 # returning to `idle`. Short on purpose — showing something no longer true is

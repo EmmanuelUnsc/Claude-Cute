@@ -1,14 +1,15 @@
-"""The live state machine: what the state is now and who changed it.
+"""The live state machine: what each session is doing and what the dragon shows.
 
 This is where the mutable part lives. The table of which states exist, what
-inherits from what and how long each lasts is in `states.py`, which is pure
-data and never changes while the program runs.
+inherits from what, how long each lasts and how urgent it is lives in
+`states.py`, which is pure data and never changes while the program runs.
 """
 
 from __future__ import annotations
 
 import threading
 import time
+from dataclasses import dataclass, field
 from typing import Callable
 
 from .states import (
@@ -20,73 +21,108 @@ from .states import (
     IDLE,
     IDLE_SLEEP,
     SESSION_ALIVE,
-    SLEEP_AFTER,
+    SLEEP,
     START_TURN,
     STATES,
     TRANSIENTS,
     TURN_END_GRACE,
     TURN_SCOPED,
     WAITING,
+    priority,
     stall_limit,
     state_for,
 )
 
 
+@dataclass
+class _Track:
+    """What one session is doing, and what is needed to judge its events.
+
+    The ordering and straggler filters live here, per session: one session's
+    old event says nothing about another's new one.
+    """
+
+    state: str = IDLE
+    changed_at: float = field(default_factory=time.monotonic)
+    seen_at: float = field(default_factory=time.monotonic)
+    last_ts: float | None = None
+    turn_ended_at: float | None = None
+    # A session counts once it *does* something, not when it opens: the
+    # sessions an editor spawns and drops on startup never count.
+    counts: bool = False
+
+    def set(self, state: str) -> None:
+        # The clock restarts even on the same state: a repeated event is news,
+        # and news is what keeps the stall watchdog away.
+        self.state = state
+        self.changed_at = time.monotonic()
+
+    def reset(self) -> None:
+        self.set(IDLE)
+        self.last_ts = None
+        self.turn_ended_at = None
+
+    def expire(self) -> None:
+        """Moves on a transient that ran out, or gives up on a stalled state."""
+        elapsed = time.monotonic() - self.changed_at
+        duration, next_state = TRANSIENTS.get(self.state, (None, None))
+        if duration is not None:
+            if elapsed >= duration:
+                self.set(next_state)
+        elif self.state not in (IDLE, IDLE_SLEEP):
+            if elapsed >= stall_limit(self.state):
+                self.set(IDLE)
+
+
 class StateManager:
-    """Holds the current state and notifies subscribers when it changes.
+    """Tracks every session and decides which one the dragon shows.
 
     Thread-safe: the HTTP server writes from its own thread and the UI reads
     from Qt's.
     """
 
     def __init__(self, on_change: Callable[[str], None] | None = None) -> None:
+        # One track per session, plus the floor: events with no session (curl,
+        # an older hook), states forced by hand, and the sleep once everyone
+        # has gone. It never leaves and never counts as a session.
+        self._sessions: dict[str, _Track] = {}
+        self._floor = _Track()
+        # A forced state is shown over everything until the next event.
+        self._forced = False
         self._state = IDLE
-        self._changed_at = time.monotonic()
-        self._last_ts: float | None = None
-        self._session: str | None = None
-        # Which sessions have shown signs of life, and when.
-        self._sessions: dict[str, float] = {}
-        # When the last live session left, and whether any ever showed up. Both
+        # When the last session left, and whether any ever showed up. Both
         # are needed: an empty registry looks the same before and after.
         self._ever_seen = False
         self._emptied_at: float | None = None
-        # Which session left a question unanswered. Nothing overwrites it.
-        self._awaiting: str | None = None
-        self._turn_ended_at: float | None = None
         self._lock = threading.Lock()
         self._on_change = on_change
 
     @property
     def state(self) -> str:
+        """What the dragon should show right now."""
         with self._lock:
             return self._state
 
     def set_state(self, state: str) -> str:
-        """Sets the state directly, skipping the ordering checks."""
+        """Shows a state right away, over every session.
+
+        The menu's emergency exit: every session goes back to `idle`, which
+        also settles a pending `waiting`, and their ordering is forgotten.
+        """
         if state not in SESSION_STATES:
             # `dragged` lands here: it describes what the user is doing, not
             # the session, so it lives in the window and never in the truth.
             known = "unknown" if state not in STATES else "not the session's"
             raise ValueError(f"{known} state: {state!r}")
         with self._lock:
-            self._last_ts = None
-            self._turn_ended_at = None
-        return self._apply(state)
-
-    def _alive(self) -> set[str]:
-        """Sessions seen recently, forgetting the old ones.
-
-        **Call with the lock held.**
-        """
-        limit = time.monotonic() - SESSION_ALIVE
-        for session in [s for s, seen in self._sessions.items() if seen < limit]:
-            del self._sessions[session]
-        # Pruning is also the moment the widget can find out it was left alone.
-        if self._sessions:
-            self._emptied_at = None
-        elif self._ever_seen and self._emptied_at is None:
-            self._emptied_at = time.monotonic()
-        return set(self._sessions)
+            for track in self._sessions.values():
+                track.reset()
+            self._floor.reset()
+            self._floor.set(state)
+            self._forced = True
+            changed = self._refresh()
+        self._notify(changed)
+        return state
 
     def handle_event(
         self,
@@ -95,143 +131,142 @@ class StateManager:
         ts: float | None = None,
         session: str | None = None,
     ) -> str:
-        """Applies the state matching a Claude Code event.
+        """Applies a Claude Code event to its session, and returns what shows.
 
         Every filter below exists so the avatar never shows something that is
         no longer true:
 
-        `session` — hooks are global, so every Claude Code session writes to
-        this same widget. The one that opened the last turn is in charge.
-
         `ts` — the instant the hook started, used to drop events that arrive
-        out of order.
+        out of order *within their session*.
 
-        Turn stragglers — a turn-scoped event arriving after the `Stop` belongs
-        to the previous turn, not to new activity.
+        Turn stragglers — a turn-scoped event arriving after that session's
+        `Stop` belongs to the previous turn, not to new activity.
         """
         # A timestamp from the future is a broken clock, not an ordering
         # claim: the event still applies, only its `when` is dropped.
         if ts is not None and ts > time.time() + CLOCK_SKEW:
             ts = None
 
-        # A session counts once it *does* something, not when it opens: the
-        # sessions an editor spawns and drops on startup never register.
-        ghost = False
         with self._lock:
-            if session is not None:
-                if event == "SessionEnd":
-                    # Whoever left cannot stay in charge of the widget.
-                    if self._session == session:
-                        self._session = None
-                    if session in self._sessions:
-                        self._sessions.pop(session, None)
-                        if self._awaiting == session:
-                            self._awaiting = None
-                    else:
-                        # Opened and closed having done nothing: its leaving
-                        # means nothing either.
-                        ghost = True
-                elif event != "SessionStart":
+            if self._forced:
+                # Whatever was forced by hand gives way to real news.
+                self._forced = False
+                self._floor.set(IDLE)
+
+            if session is not None and event == "SessionEnd":
+                self._leave(session)
+                self._alive()
+                changed = self._refresh()
+                track = None
+            elif session is None:
+                track = self._floor
+            else:
+                track = self._sessions.setdefault(session, _Track())
+                track.seen_at = time.monotonic()
+                if event != "SessionStart":
+                    track.counts = True
                     self._ever_seen = True
-                    self._sessions[session] = time.monotonic()
-            alive = self._alive()
-            active_session = self._session
-            turn_ended_at = self._turn_ended_at
-            last_ts = self._last_ts
-            awaiting = self._awaiting
 
-        if ghost:
-            return self.state
+            if track is not None:
+                self._alive(keep=session)
+                if self._accepts(track, event, ts):
+                    self._apply(track, event, state_for(event, tool_name), ts)
+                changed = self._refresh()
+        self._notify(changed)
+        return self.state
 
-        # 0. Another session left a question unanswered: do not overwrite it,
-        #    unless that session is gone.
-        if session is not None and awaiting is not None and awaiting != session:
-            if awaiting in alive:
-                return self.state
-            with self._lock:
-                if self._awaiting == awaiting:
-                    self._awaiting = None
-
-        # 1. A session ended while others are alive: closing one window is
-        #    not "everything is over".
-        if event == "SessionEnd" and session is not None and alive:
-            return self.state
-
-        # 2. Which session is this from?
-        if session is not None:
-            if event in START_TURN:
-                active_session = session  # claims the widget
-            elif active_session is not None and session != active_session:
-                return self.state  # another session: not in charge here
-
-        # 3. Did it arrive out of order?
-        if ts is not None and last_ts is not None and ts < last_ts:
-            return self.state
-
-        # 4. Is it a straggler from a turn that already closed?
-        if event in TURN_SCOPED and turn_ended_at is not None:
-            if time.monotonic() - turn_ended_at < TURN_END_GRACE:
-                return self.state
-
-        state = self._apply(state_for(event, tool_name))
-
+    def tick(self) -> str:
+        """Call periodically: expires transients and stalled states."""
         with self._lock:
-            if session is not None:
-                self._session = active_session
-                if state == WAITING:
-                    self._awaiting = session
-            if ts is not None and (self._last_ts is None or ts > self._last_ts):
-                self._last_ts = ts
-            if event in START_TURN:
-                self._turn_ended_at = None
-            elif state in (DONE, ERROR_API):
-                self._turn_ended_at = time.monotonic()
-
-        return state
+            self._floor.expire()
+            for track in self._sessions.values():
+                track.expire()
+            self._alive()
+            changed = self._refresh()
+        self._notify(changed)
+        return self.state
 
     def abandoned(self) -> bool:
         """Whether every session is gone and the grace period is spent.
 
         Reports the fact; what to do about it is the window's call. The clock
         starts when the last session leaves and never at startup, so a widget
-        opened by hand never closes on its own. A pending `waiting` holds it
-        back, and `SESSION_ALIVE` covers a `SessionEnd` that never arrived.
+        opened by hand never closes on its own. A session waiting on the user
+        never goes silent-dead, so a pending question holds it back.
         """
         with self._lock:
-            if self._awaiting is not None:
-                return False
             self._alive()  # prunes, and starts the clock if it has to
             if self._emptied_at is None:
                 return False
             return time.monotonic() - self._emptied_at >= CLOSE_AFTER
 
-    def tick(self) -> str:
-        """Call periodically: expires the transient states."""
-        with self._lock:
-            current = self._state
-            elapsed = time.monotonic() - self._changed_at
+    # --- internals: call with the lock held ---------------------------------
 
-        duration, next_state = TRANSIENTS.get(current, (None, None))
-        if duration is not None and elapsed >= duration:
-            return self._apply(next_state)
+    @staticmethod
+    def _accepts(track: _Track, event: str, ts: float | None) -> bool:
+        """Whether the event is news for its session, or a leftover."""
+        # Did it arrive out of order?
+        if ts is not None and track.last_ts is not None and ts < track.last_ts:
+            return False
+        # Is it a straggler from a turn that already closed?
+        if event in TURN_SCOPED and track.turn_ended_at is not None:
+            if time.monotonic() - track.turn_ended_at < TURN_END_GRACE:
+                return False
+        return True
 
-        if current == IDLE and elapsed >= SLEEP_AFTER:
-            return self._apply(IDLE_SLEEP)
+    @staticmethod
+    def _apply(track: _Track, event: str, state: str, ts: float | None) -> None:
+        track.set(state)
+        if ts is not None and (track.last_ts is None or ts > track.last_ts):
+            track.last_ts = ts
+        if event in START_TURN:
+            track.turn_ended_at = None
+        elif state in (DONE, ERROR_API):
+            track.turn_ended_at = time.monotonic()
 
-        # No active state may stay stuck forever.
-        if current not in (IDLE, IDLE_SLEEP) and elapsed >= stall_limit(current):
-            return self._apply(IDLE)
+    def _leave(self, session: str) -> None:
+        """Drops a session; if it was the last one that counted, sleep."""
+        track = self._sessions.pop(session, None)
+        # Opened and closed having done nothing: its leaving means nothing.
+        if track is None or not track.counts:
+            return
+        if not any(t.counts for t in self._sessions.values()):
+            self._floor.set(SLEEP)
 
-        return current
+    def _alive(self, keep: str | None = None) -> None:
+        """Forgets silent sessions and keeps the closing clock up to date.
 
-    def _apply(self, state: str) -> str:
-        with self._lock:
-            changed = state != self._state
-            self._state = state
-            self._changed_at = time.monotonic()
-            # Leaving `waiting` settles the debt, however it happens.
-            if state != WAITING:
-                self._awaiting = None
-        if changed and self._on_change:
-            self._on_change(state)
-        return state
+        The safety net for a `SessionEnd` that never arrives. A session in
+        `waiting` is never silent-dead: silence is exactly what waiting on a
+        person looks like, and `waiting` has its own eight-hour expiry. `keep`
+        spares the session whose event is being handled right now.
+        """
+        limit = time.monotonic() - SESSION_ALIVE
+        for session, track in list(self._sessions.items()):
+            if session != keep and track.state != WAITING and track.seen_at < limit:
+                self._leave(session)
+        # Pruning is also the moment the widget can find out it was left alone.
+        if any(t.counts for t in self._sessions.values()):
+            self._emptied_at = None
+        elif self._ever_seen and self._emptied_at is None:
+            self._emptied_at = time.monotonic()
+
+    def _refresh(self) -> str | None:
+        """Recomputes what shows. Returns it if it changed, else None."""
+        if self._forced:
+            shown = self._floor.state
+        else:
+            tracks = [self._floor, *self._sessions.values()]
+            shown = max(
+                tracks, key=lambda t: (priority(t.state), t.changed_at)
+            ).state
+        if shown == self._state:
+            return None
+        self._state = shown
+        return shown
+
+    # --- outside the lock ---------------------------------------------------
+
+    def _notify(self, changed: str | None) -> None:
+        if changed is not None and self._on_change:
+            self._on_change(changed)

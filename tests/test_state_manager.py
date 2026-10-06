@@ -5,7 +5,7 @@ The table it consults is tested separately, in `test_states.py`.
 
 Several tests here swap a real table for a test one so they do not have to wait
 out real seconds. Each is patched **in the module that reads it**: `tick()`
-looks at `TRANSIENTS` and `SLEEP_AFTER` in `state_manager`'s namespace, while
+looks at `TRANSIENTS` and `SESSION_ALIVE` in `state_manager`'s namespace, while
 `stall_limit()` looks at `STALL_AFTER` in `states`'.
 """
 
@@ -78,11 +78,9 @@ class TestTransients(unittest.TestCase):
     def setUp(self):
         # The real values are saved so other tests are not contaminated.
         self._transients = dict(sm.TRANSIENTS)
-        self._sleep_after = sm.SLEEP_AFTER
 
     def tearDown(self):
         sm.TRANSIENTS = self._transients
-        sm.SLEEP_AFTER = self._sleep_after
 
     def test_done_expires_into_idle(self):
         sm.TRANSIENTS = {st.DONE: (0.05, st.IDLE)}
@@ -105,11 +103,16 @@ class TestTransients(unittest.TestCase):
         time.sleep(0.05)
         self.assertEqual(m.tick(), st.THINKING)
 
-    def test_a_long_idle_falls_asleep(self):
-        sm.SLEEP_AFTER = 0.05
+    def test_a_long_idle_stays_awake(self):
+        # It used to fall asleep after five minutes of `idle`. Now it sleeps
+        # only once every session is gone: an open session that is just quiet
+        # (you reading code) keeps it awake however long it lasts.
         m = StateManager()
-        time.sleep(0.08)
-        self.assertEqual(m.tick(), st.IDLE_SLEEP)
+        m.handle_event("UserPromptSubmit", ts=1, session="A")
+        m.handle_event("Stop", ts=2, session="A")
+        for track in (m._floor, *m._sessions.values()):
+            track.changed_at -= 3600
+        self.assertEqual(m.tick(), st.IDLE)
 
 
 class TestEventOrder(unittest.TestCase):
@@ -291,15 +294,24 @@ class TestSeveralSessions(unittest.TestCase):
         self.assertEqual(m.handle_event("PostToolUse", ts=3, session="A"),
                          st.THINKING)
 
-    def test_an_abandoned_session_releases_the_notice(self):
-        # If the notice's owner stops showing signs of life, it cannot block
-        # everyone else forever.
+    def test_silence_does_not_release_the_notice(self):
+        # Silence is exactly what waiting on a person looks like, so the
+        # silence net spares a session in `waiting`. It still ends: by its
+        # eight-hour expiry, by the session closing, or by its process dying.
         sm.SESSION_ALIVE = 0.0
         m = StateManager()
         m.handle_event("UserPromptSubmit", ts=1, session="A")
         m.handle_event("Notification", ts=2, session="A")
         self.assertEqual(m.handle_event("SessionStart", ts=3, session="B"),
-                         st.WAKE)
+                         st.WAITING)
+
+    def test_closing_the_session_releases_the_notice(self):
+        m = StateManager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A")
+        m.handle_event("Notification", ts=2, session="A")
+        m.handle_event("UserPromptSubmit", ts=3, session="B")
+        self.assertEqual(m.handle_event("SessionEnd", ts=4, session="A"),
+                         st.THINKING)
 
     def test_expiring_the_notice_releases_it(self):
         # The watchdog took it back to idle: the debt no longer exists.
@@ -392,16 +404,111 @@ class TestSeveralSessions(unittest.TestCase):
         self.assertLessEqual(len(m._sessions), 1)
 
 
+class TestTheMostUrgentSessionShows(unittest.TestCase):
+    """Every session keeps its own state; the dragon shows the most urgent.
+
+    Before this, the last event won, so a session that was merely working
+    hid one that had just failed or finished.
+    """
+
+    def setUp(self):
+        self._transients = dict(sm.TRANSIENTS)
+        self._alive = sm.SESSION_ALIVE
+
+    def tearDown(self):
+        sm.TRANSIENTS = self._transients
+        sm.SESSION_ALIVE = self._alive
+
+    def test_a_question_beats_work(self):
+        m = StateManager()
+        m.handle_event("PreToolUse", "Bash", ts=1, session="A")
+        self.assertEqual(m.handle_event("Notification", ts=2, session="B"),
+                         st.WAITING)
+        # And work does not take it back while the question stands.
+        self.assertEqual(m.handle_event("PreToolUse", "Edit", ts=3, session="A"),
+                         st.WAITING)
+
+    def test_answering_gives_the_dragon_back_to_the_rest(self):
+        m = StateManager()
+        m.handle_event("PreToolUse", "Bash", ts=1, session="A")
+        m.handle_event("PermissionRequest", ts=2, session="B")
+        self.assertEqual(m.handle_event("PostToolUse", ts=3, session="B"),
+                         st.WORKING_BASH)
+
+    def test_another_session_finishing_shows_briefly(self):
+        sm.TRANSIENTS = {st.DONE: (0.05, st.IDLE)}
+        m = StateManager()
+        m.handle_event("PreToolUse", "Bash", ts=1, session="A")
+        self.assertEqual(m.handle_event("Stop", ts=2, session="B"), st.DONE)
+        time.sleep(0.08)
+        self.assertEqual(m.tick(), st.WORKING_BASH)
+
+    def test_opening_a_session_does_not_interrupt_work(self):
+        m = StateManager()
+        m.handle_event("PreToolUse", "Bash", ts=1, session="A")
+        self.assertEqual(m.handle_event("SessionStart", ts=2, session="B"),
+                         st.WORKING_BASH)
+
+    def test_a_tie_goes_to_the_latest(self):
+        m = StateManager()
+        m.handle_event("PreToolUse", "Bash", ts=1, session="A")
+        self.assertEqual(m.handle_event("PreToolUse", "Edit", ts=2, session="B"),
+                         st.WORKING_EDIT)
+        self.assertEqual(m.handle_event("PreToolUse", "Read", ts=3, session="A"),
+                         st.WORKING_READ)
+
+    def test_ordering_is_judged_per_session(self):
+        # One session's clock says nothing about another's events: a global
+        # ordering dropped B's real work as "older" than A's Stop.
+        m = StateManager()
+        m.handle_event("Stop", ts=100.0, session="A")
+        m.handle_event("PreToolUse", "Bash", ts=50.0, session="B")
+        # A's `done` outranks it on screen; what matters is that B took it.
+        self.assertEqual(m._sessions["B"].state, st.WORKING_BASH)
+
+    def test_stragglers_are_judged_per_session(self):
+        # A's turn ending does not make B's tools leftovers.
+        m = StateManager()
+        m.handle_event("UserPromptSubmit", ts=1, session="B")
+        m.handle_event("Stop", ts=2, session="A")
+        m.handle_event("PreToolUse", "Bash", ts=3, session="B")
+        self.assertEqual(m._sessions["B"].state, st.WORKING_BASH)
+
+    def test_a_session_still_open_keeps_it_awake(self):
+        # B opened and has not done anything yet, but it is there: the last
+        # working session leaving is not everyone leaving.
+        m = StateManager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A")
+        m.handle_event("SessionStart", ts=2, session="B")
+        self.assertNotIn(m.handle_event("SessionEnd", ts=3, session="A"),
+                         (st.SLEEP, st.IDLE_SLEEP))
+
+    def test_silence_puts_it_to_sleep(self):
+        # The net for a `SessionEnd` that never arrives.
+        sm.SESSION_ALIVE = 0.0
+        m = StateManager()
+        m.handle_event("UserPromptSubmit", ts=1, session="A")
+        self.assertEqual(m.tick(), st.SLEEP)
+
+    def test_a_forced_state_gives_way_to_the_next_event(self):
+        # Forcing `waiting` from the menu must not leave an eight-hour question
+        # sitting on top of every real session.
+        m = StateManager()
+        m.set_state(st.WAITING)
+        self.assertEqual(
+            m.handle_event("PreToolUse", "Bash", ts=1, session="A"),
+            st.WORKING_BASH,
+        )
+
+
 class TestNothingGetsStuck(unittest.TestCase):
     """No active state should be able to stay forever."""
 
     def setUp(self):
-        self._sleep_after = sm.SLEEP_AFTER
         self._stall = dict(st.STALL_AFTER)
         self._default = st.STALL_DEFAULT
 
     def tearDown(self):
-        sm.SLEEP_AFTER = self._sleep_after
         st.STALL_AFTER = self._stall
         st.STALL_DEFAULT = self._default
 
@@ -416,10 +523,9 @@ class TestNothingGetsStuck(unittest.TestCase):
             self.assertEqual(m.tick(), st.IDLE, f"{state} got stuck")
 
     def test_idle_does_not_reset_itself(self):
-        # idle should only move to idle-sleep, never restart via the watchdog.
+        # idle is where the watchdog sends things; it never restarts itself.
         st.STALL_AFTER = {}
         st.STALL_DEFAULT = 0.05
-        sm.SLEEP_AFTER = 999.0
         m = StateManager()
         time.sleep(0.08)
         self.assertEqual(m.tick(), st.IDLE)
@@ -429,12 +535,6 @@ class TestNothingGetsStuck(unittest.TestCase):
         st.STALL_DEFAULT = 0.05
         m = StateManager()
         m.set_state(st.IDLE_SLEEP)
-        time.sleep(0.08)
-        self.assertEqual(m.tick(), st.IDLE_SLEEP)
-
-    def test_a_long_idle_still_falls_asleep(self):
-        sm.SLEEP_AFTER = 0.05
-        m = StateManager()
         time.sleep(0.08)
         self.assertEqual(m.tick(), st.IDLE_SLEEP)
 
@@ -683,10 +783,9 @@ class TestLeavingWithTheSessions(unittest.TestCase):
         session dies at half an hour.
 
         While the notice stands the widget stays, however long the silence.
-        Once the watchdog takes the notice away the debt is settled, and the
-        clock that has been running since the silence began is long past its
-        grace: the widget leaves on the next tick. Nobody is coming back after
-        eight hours away.
+        Once the watchdog takes the notice away the session is just silent,
+        the silence net lets it go, the dragon falls asleep and the widget
+        leaves. Nobody is coming back after eight hours away.
         """
         sm.CLOSE_AFTER, sm.SESSION_ALIVE = 0.0, 0.0
         after, default = dict(st.STALL_AFTER), st.STALL_DEFAULT
@@ -697,7 +796,7 @@ class TestLeavingWithTheSessions(unittest.TestCase):
             m.handle_event("Notification", ts=2, session="A")
             self.assertFalse(m.abandoned(), "it left with a question open")
             time.sleep(0.06)
-            self.assertEqual(m.tick(), st.IDLE)
+            self.assertEqual(m.tick(), st.SLEEP)
             self.assertTrue(m.abandoned())
         finally:
             st.STALL_AFTER, st.STALL_DEFAULT = after, default

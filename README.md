@@ -20,7 +20,7 @@ It reacts to Claude Code, telling apart up to **16 states**:
 
 | State | When it shows up |
 |---|---|
-| `idle` / `idle-sleep` | Nothing going on; falls asleep after 5 minutes |
+| `idle` / `idle-sleep` | Nothing going on; falls asleep once every session is closed |
 | `thinking` | Claude is reasoning |
 | `working` + `-bash` `-edit` `-read` `-web` `-agent` | Using a tool, depending which |
 | `waiting` | **Claude is waiting for you** |
@@ -456,7 +456,7 @@ Reacciona a lo que hace Claude Code, distinguiendo hasta **16 estados**:
 
 | Estado | Cuándo aparece |
 |---|---|
-| `idle` / `idle-sleep` | No pasa nada; se duerme a los 5 minutos |
+| `idle` / `idle-sleep` | No pasa nada; se duerme cuando se cierran todas las sesiones |
 | `thinking` | Claude está razonando |
 | `working` + `-bash` `-edit` `-read` `-web` `-agent` | Usando una herramienta, según cuál |
 | `waiting` | **Claude está esperando tu aprobación** |
@@ -824,9 +824,9 @@ Lo que se sabe que falta:
 - **La app de escritorio no muestra los errores de hook.** Falla igual que la
   terminal, pero en silencio, así que cualquier problema ahí se ve como que no
   pasa nada. `/claude-cute:doctor` existe por eso.
-- **Varias sesiones comparten un único avatar** y gana el último evento, con
-  dos excepciones: un aviso pendiente de otra sesión no se pisa, y cerrar una
-  ventana sólo duerme al avatar si era la última viva.
+- **Varias sesiones comparten un único avatar**, que muestra la más urgente:
+  una pregunta gana a un error, un error a un trabajo terminado, y eso a una
+  sesión que trabaja.
 - **Linux está escrito pero nunca probado**, y en Wayland el avatar no se puede
   mover: el sistema no deja que una ventana se ubique sola.
 - **macOS**, sin probar.
