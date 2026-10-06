@@ -375,10 +375,20 @@ modified.
 | Its own folder | the sprites, and a `config.json` with the avatar's position |
 | One port on loopback | 8770 by default, only reachable from your own machine |
 | `~/.claude/claude-cute/` | **only if it had to fetch PySide6.** See below |
+| The list of running processes | **read only**, to tell when a Claude Code window closes. See below |
 
 No registry keys, no autostart entries, and no outbound connections other than
 that one download: the only socket the widget opens is a `listen` on
 `127.0.0.1`.
+
+#### About the process list
+
+A Claude Code window can close without saying goodbye — a terminal closed with
+the X, the desktop app quit — and then the dragon would never know to sleep.
+So each hook looks up which Claude Code process started it and sends its id
+along with the event, and the widget checks every so often whether that
+process is still running. Nothing is changed, stopped or sent anywhere: it is
+the same check a task manager does. On macOS the lookup runs `ps`.
 
 #### About that one folder
 
@@ -847,10 +857,21 @@ Lo que se sabe que falta:
 | Su propia carpeta | los sprites, y un `config.json` con la posición del avatar |
 | Un puerto en loopback | el 8770 por defecto, alcanzable sólo desde tu máquina |
 | `~/.claude/claude-cute/` | **sólo si tuvo que bajar PySide6.** Ver abajo |
+| La lista de procesos en ejecución | **sólo lectura**, para saber cuándo se cierra una ventana de Claude Code. Ver abajo |
 
 Ni claves del registro, ni entradas de inicio automático, ni conexiones
 salientes más allá de esa descarga: el único socket que abre el widget es un
 `listen` en `127.0.0.1`.
+
+#### Sobre la lista de procesos
+
+Una ventana de Claude Code puede cerrarse sin despedirse —una terminal cerrada
+con la X, la app de escritorio que se cierra— y entonces el dragón nunca se
+enteraría de que tiene que dormirse. Por eso cada hook busca qué proceso de
+Claude Code lo lanzó y manda su número junto con el evento, y el widget revisa
+cada tanto si ese proceso sigue vivo. No cambia, no detiene ni envía nada a
+ningún lado: es la misma consulta que hace un administrador de tareas. En macOS
+la búsqueda usa `ps`.
 
 #### Sobre esa carpeta
 
