@@ -55,11 +55,12 @@ class TestStateManager(unittest.TestCase):
         # Guards the derivation: a state added to the tree is a session state
         # unless someone deliberately says otherwise.
         self.assertEqual(set(st.STATES) - set(st.SESSION_STATES),
-                         {st.DRAGGED, st.FALLING})
+                         {st.DRAGGED, st.FALLING, st.LANDING})
 
     def test_the_manager_refuses_the_entrance_too(self):
-        with self.assertRaises(ValueError):
-            StateManager().set_state(st.FALLING)
+        for state in (st.FALLING, st.LANDING):
+            with self.assertRaises(ValueError):
+                StateManager().set_state(state)
 
     def test_the_callback_only_fires_on_real_changes(self):
         seen = []

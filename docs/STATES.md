@@ -1,7 +1,8 @@
 # The states: what triggers them and how to reproduce them
 
-Sixteen of them come from Claude Code. Two come from the window itself:
-`dragged`, while you carry it, and `falling`, its entrance at startup.
+Sixteen of them come from Claude Code. Three come from the window itself:
+`dragged`, while you carry it, and `falling` and `landing`, its entrance at
+startup.
 
 A complete reference. For each state: which Claude Code event activates it,
 what it takes to trigger it deliberately, how long it lasts and what happens
@@ -55,7 +56,8 @@ The third one is what to use for real testing: it goes through `EVENTS`,
 | `sleep` | `SessionEnd` | Close a Claude Code session | 1.4 s | `idle-sleep` |
 | `compacting` | `PreCompact` | Run `/compact` by hand | until `PostCompact` | safety net after 300 s |
 | `dragged` | **no event** | Drag the avatar with the left button | while you hold it | never — it is not the session's |
-| `falling` | **no event** | Start the widget | the fall, under a second; skipped with Windows animations off | the session's state, on touching down |
+| `falling` | **no event** | Start the widget | the meteor's dive, under a second; skipped with Windows animations off | `landing`, on impact |
+| `landing` | **no event** | Start the widget | its animation, once | the session's state |
 
 ---
 

@@ -1,11 +1,11 @@
-"""The entrance: the dragon drops onto its spot when the widget starts.
+"""The entrance: a meteor dives onto the dragon's spot when the widget starts.
 
-Pure arithmetic plus one question to the system, so the shape of the fall is
+Pure arithmetic plus one question to the system, so the shape of the dive is
 tested with numbers and the window only has to play it.
 
-The motion is a real fall — constant gravity, so it starts slow and speeds up —
-followed by one short hop on landing. Same gravity for both, which is what
-makes the hop read as weight rather than as an effect.
+The meteor comes in from the upper left along a straight 45 degree line — the
+angle its trail is drawn at — and speeds up the whole way, like anything
+falling. What happens on impact is a sprite animation (`landing`), not motion.
 """
 
 from __future__ import annotations
@@ -13,41 +13,28 @@ from __future__ import annotations
 import math
 import sys
 
-# Pixels per second squared. A whole 1080 px screen takes about 0.65 s: long
-# enough to see, short enough not to make you wait for your own widget.
+# Pixels per second squared, measured on the vertical. A dive from above a
+# 1080 px screen takes about 0.65 s: long enough to see, short enough not to
+# make you wait for your own widget.
 GRAVITY = 5000.0
 
-# How high the landing hop goes, as a share of the avatar's side. Relative, so
-# a character drawn at another scale bounces in proportion.
-HOP_SHARE = 1 / 16
+# Sideways pixels per pixel of drop. 1.0 is 45 degrees, matching the sprite.
+SLANT = 1.0
 
 
 def fall_ms(distance: float) -> float:
-    """How long falling `distance` pixels takes from rest."""
+    """How long dropping `distance` pixels takes from rest."""
     return 1000.0 * math.sqrt(2.0 * max(distance, 0.0) / GRAVITY)
 
 
-def hop_ms(height: float) -> float:
-    """How long a hop `height` pixels high takes, up and back down."""
-    return 2.0 * fall_ms(height)
+def height_at(ms: float, distance: float) -> float:
+    """How far above its spot the meteor is, `ms` into the dive.
 
-
-def height_at(ms: float, distance: float, hop: float) -> float:
-    """How far above its spot the avatar is, `ms` into the entrance.
-
-    `distance` at the start, 0 on touching down, up to `hop` mid-hop, and 0
-    for good once the hop lands.
+    `distance` at the start, 0 from impact on. The sideways offset is this
+    times `SLANT`.
     """
     seconds = ms / 1000.0
-    falling = fall_ms(distance) / 1000.0
-    if seconds < falling:
-        return distance - 0.5 * GRAVITY * seconds**2
-    seconds -= falling
-    if seconds < hop_ms(hop) / 1000.0:
-        # Thrown up at the speed that reaches exactly `hop`.
-        speed = math.sqrt(2.0 * GRAVITY * hop)
-        return max(0.0, speed * seconds - 0.5 * GRAVITY * seconds**2)
-    return 0.0
+    return max(0.0, distance - 0.5 * GRAVITY * seconds**2)
 
 
 def animations_enabled() -> bool:

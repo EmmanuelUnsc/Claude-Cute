@@ -487,7 +487,7 @@ class TestStaysOnTop(BaseWindow):
 
 
 class TestDropIn(BaseWindow):
-    """At startup the dragon falls onto its spot instead of popping up."""
+    """At startup a meteor dives onto the dragon's spot and she comes out of it."""
 
     def setUp(self):
         original = window_mod.entrance.animations_enabled
@@ -496,77 +496,124 @@ class TestDropIn(BaseWindow):
                         original)
 
     def dropped(self, **kwargs) -> tuple[AvatarWindow, QPoint]:
-        window = self.make(states=("idle", "falling"), **kwargs)
+        window = self.make(states=("idle", "falling", "landing"), **kwargs)
         window.move_to_corner()
         target = window.pos()
         window.drop_in()
         self.addCleanup(window._fall.stop)
+        self.addCleanup(window._arrival.stop)
         return window, target
 
-    def land(self, window: AvatarWindow) -> None:
+    def hit(self, window: AvatarWindow) -> None:
+        """Runs the dive to its end: the meteor hits the ground."""
         window._fall.setCurrentTime(window._fall.duration())
         _app.processEvents()
 
-    def test_it_starts_above_the_screen(self):
+    def arrive(self, window: AvatarWindow) -> None:
+        """Lets the landing finish."""
+        window._arrival.stop()
+        window._arrived()
+
+    def press(self, window: AvatarWindow) -> None:
+        at = window.pos() + QPoint(5, 5)
+        window.mousePressEvent(QMouseEvent(
+            QEvent.MouseButtonPress, QPointF(5, 5), QPointF(at),
+            Qt.LeftButton, Qt.LeftButton, Qt.NoModifier,
+        ))
+
+    # --- the dive -------------------------------------------------------
+
+    def test_it_starts_above_the_screen_and_to_the_left(self):
         window, target = self.dropped()
         screen = window.screen().geometry()
         self.assertLess(window.y(), screen.top())
-        self.assertEqual(window.x(), target.x())
+        self.assertLess(window.x(), target.x())
         self.assertTrue(window.isVisible())
 
-    def test_it_shows_the_fall(self):
+    def test_it_comes_in_at_45_degrees(self):
+        # The angle the trail is drawn at; any other and the meteor would look
+        # like it is sliding sideways.
+        window, target = self.dropped()
+        for share in (0, 3, 2):
+            if share:
+                window._fall.setCurrentTime(window._fall.duration() // share)
+            self.assertEqual(target.x() - window.x(), target.y() - window.y())
+
+    def test_it_shows_the_meteor(self):
         window, _ = self.dropped()
         self.assertEqual(window.engine.state, st.FALLING)
 
-    def test_it_lands_on_its_spot(self):
+    def test_the_meteor_is_painted_from_the_first_instant(self):
+        # Not one tick later: the resting dragon must never appear in the sky.
+        window, _ = self.dropped()
+        self.assertEqual(window.engine.resolved_state, st.FALLING)
+        self.assertIs(window._frame, window.engine.current_frame())
+
+    # --- the landing ----------------------------------------------------
+
+    def test_it_hits_its_spot(self):
         window, target = self.dropped()
-        self.land(window)
+        self.hit(window)
         self.assertEqual(window.pos(), target)
 
-    def test_landing_hands_the_screen_back_to_the_truth(self):
+    def test_impact_plays_the_landing_at_once(self):
+        # A meteor lying on the ground until the next tick reads as a glitch:
+        # the landing is painted the moment it hits.
+        window, _ = self.dropped()
+        self.hit(window)
+        self.assertEqual(window.engine.resolved_state, st.LANDING)
+        self.assertIs(window._frame, window.engine.current_frame())
+
+    def test_the_landing_plays_once_and_holds(self):
+        window, _ = self.dropped()
+        self.hit(window)
+        for _ in range(10):
+            window.engine.advance()
+        self.assertTrue(window.engine.finished())
+
+    def test_the_landing_lasts_its_animation(self):
+        window, _ = self.dropped()
+        self.hit(window)
+        self.assertTrue(window._arrival.isActive())
+        self.assertGreaterEqual(window._arrival.interval(),
+                                window.engine.duration_ms(st.LANDING))
+
+    def test_arriving_hands_the_screen_back_to_the_truth(self):
         window, _ = self.dropped()
         window.manager.set_state(st.THINKING)
-        self.land(window)
+        self.hit(window)
+        self.arrive(window)
         self.assertEqual(window.engine.state, st.THINKING)
-
-    def test_the_fall_pose_is_painted_from_the_first_instant(self):
-        # Not one tick later: the first ~150 ms showed the resting pose up in
-        # the air, and the fall pose lingered on the ground after landing.
-        window, _ = self.dropped()
-        self.assertIs(window._frame, window.engine.current_frame())
-        self.assertEqual(window.engine.resolved_state, st.FALLING)
-        self.land(window)
-        self.assertEqual(window.engine.resolved_state, st.IDLE)
         self.assertIs(window._frame, window.engine.current_frame())
 
-    def test_it_hops_in_its_resting_pose(self):
-        window, target = self.dropped()
-        distance, hop = window._fall_shape
-        mid_hop = window_mod.entrance.fall_ms(distance) + window_mod.entrance.hop_ms(hop) / 2
-        window._fall.setCurrentTime(round(mid_hop))
-        self.assertLess(window.y(), target.y(), "not in the air mid-hop")
-        self.assertEqual(window.engine.resolved_state, st.IDLE)
-
-    def test_the_clock_does_not_land_it_early(self):
+    def test_the_clock_waits_for_the_whole_entrance(self):
         # Same rule as dragging: the truth waits until the entrance is over.
         # `waiting` skips the minimum hold, so only the entrance can stop it.
         window, _ = self.dropped()
         window.manager.set_state(st.WAITING)
         window._on_tick()
         self.assertEqual(window.engine.state, st.FALLING)
+        self.hit(window)
+        window._on_tick()
+        self.assertEqual(window.engine.state, st.LANDING)
+
+    # --- interruptions --------------------------------------------------
 
     def test_catching_it_mid_air_keeps_it_there(self):
-        window, target = self.dropped()
+        window, _ = self.dropped()
         window._fall.setCurrentTime(window._fall.duration() // 3)
         caught = window.pos()
-        press = QMouseEvent(
-            QEvent.MouseButtonPress, QPointF(5, 5), QPointF(caught + QPoint(5, 5)),
-            Qt.LeftButton, Qt.LeftButton, Qt.NoModifier,
-        )
-        window.mousePressEvent(press)
-        self.assertFalse(window._fall.state() == window._fall.State.Running)
+        self.press(window)
+        self.assertNotEqual(window._fall.state(), window._fall.State.Running)
         self.assertEqual(window.pos(), caught)
-        self.assertNotEqual(window.engine.state, st.FALLING)
+        self.assertNotIn(window.engine.state, (st.FALLING, st.LANDING))
+
+    def test_grabbing_it_while_it_lands_skips_the_rest(self):
+        window, _ = self.dropped()
+        self.hit(window)
+        self.press(window)
+        self.assertFalse(window._arrival.isActive())
+        self.assertNotEqual(window.engine.state, st.LANDING)
 
     def test_quitting_mid_air_remembers_where_it_was_headed(self):
         config = self.temp_config()
@@ -578,7 +625,7 @@ class TestDropIn(BaseWindow):
         window_mod.entrance.animations_enabled = lambda: False
         window, target = self.dropped()
         self.assertEqual(window.pos(), target)
-        self.assertNotEqual(window.engine.state, st.FALLING)
+        self.assertNotIn(window.engine.state, (st.FALLING, st.LANDING))
         self.assertTrue(window.isVisible())
 
 

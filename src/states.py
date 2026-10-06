@@ -35,9 +35,11 @@ SLEEP = "sleep"
 COMPACTING = "compacting"
 # The states the session does not produce: the window imposes them, and the
 # `StateManager` never hears about them. `dragged` lasts while you hold the
-# avatar; `falling` is its entrance, dropping onto its spot at startup.
+# avatar. `falling` and `landing` are its entrance at startup: a meteor diving
+# onto its spot, and the dragon coming out of it.
 DRAGGED = "dragged"
 FALLING = "falling"
+LANDING = "landing"
 
 STATES = (
     IDLE,
@@ -58,10 +60,11 @@ STATES = (
     COMPACTING,
     DRAGGED,
     FALLING,
+    LANDING,
 )
 
 # What the window imposes on its own, over whatever the session is doing.
-WINDOW_STATES = frozenset({DRAGGED, FALLING})
+WINDOW_STATES = frozenset({DRAGGED, FALLING, LANDING})
 
 # The states Claude Code can produce: everything the window does not impose.
 # Derived, so it cannot drift from `STATES`.
@@ -76,6 +79,8 @@ PARENTS: dict[str, str] = {
     COMPACTING: THINKING,
     DRAGGED: WAITING,
     FALLING: DRAGGED,
+    # Coming out of the meteor is closest to waking up.
+    LANDING: WAKE,
     SLEEP: IDLE_SLEEP,
 }
 
@@ -102,6 +107,7 @@ DESCRIPTIONS: dict[str, str] = {
     COMPACTING: "tidying up the context",
     DRAGGED: "being carried around",
     FALLING: "dropping in",
+    LANDING: "arriving",
 }
 
 # --- Automatic transitions ---------------------------------------------------
@@ -123,6 +129,10 @@ TRANSIENTS: dict[str, tuple[float, str]] = {
 # Transient states play once and hold their last frame. Derived, not a second
 # list to keep in sync.
 ONE_SHOT = frozenset(TRANSIENTS)
+
+# What the animation engine plays once and holds: the session's transients plus
+# the landing, which the window ends itself once it has played.
+PLAYS_ONCE = ONE_SHOT | {LANDING}
 
 # --- Several sessions at once -------------------------------------------------
 

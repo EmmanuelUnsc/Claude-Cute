@@ -8,7 +8,7 @@ from PySide6.QtCore import QRect
 from PySide6.QtGui import QPixmap, QRegion
 
 from .character import Character, available_characters
-from .states import IDLE, STATES, TRANSIENTS, ONE_SHOT, ancestors
+from .states import IDLE, STATES, TRANSIENTS, PLAYS_ONCE, ancestors
 
 DEFAULT_FRAME_PX = 128
 
@@ -165,7 +165,7 @@ class AnimationEngine:
     def set_state(self, state: str) -> None:
         if state == self._state:
             # Repeating a one-shot state plays it again from the start.
-            if state in ONE_SHOT:
+            if state in PLAYS_ONCE:
                 self._index = 0
             return
         self._state = state
@@ -181,7 +181,7 @@ class AnimationEngine:
         Only when the state has sprites of its own; an inherited animation
         loops.
         """
-        return self._state in ONE_SHOT and self._resolved == self._state
+        return self._state in PLAYS_ONCE and self._resolved == self._state
 
     def finished(self) -> bool:
         """Whether a one-shot animation has already reached its end."""

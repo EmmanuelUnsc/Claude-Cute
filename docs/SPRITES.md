@@ -189,13 +189,23 @@ one animation you are guaranteed to actually watch, since you are looking
 straight at the dragon while you drag it. Drawn as an entry plus a loop: seven
 frames, tail from the sixth.
 
-**`falling` is the seventeenth, and the window's other one.** The pose while
-the dragon drops onto its spot at startup; it touches down and hops in its
-resting pose. One frame (wings open, from `Claude Flying`), held for the whole
-fall, which lasts under a second. More frames loop, so a wing beat needs no
-code. A character without the folder falls with `dragged`'s drawings.
+**`falling` and `landing` are the window's other two: the entrance.** At
+startup the dragon arrives as a meteor diving onto its spot from the upper
+left, and comes out of it.
 
-**The set is complete: 17 folders, 85 frames.** The only state with no drawing
+- `falling` (4 frames, loop) is the meteor in flight. **Its trail is drawn at
+  45 degrees**, the angle the window travels at (`SLANT` in
+  `src/entrance.py`); draw it at another angle and change that number with it.
+  The rock sits where the character's body is at rest, so the impact lands on
+  the right spot.
+- `landing` (9 frames, one pass) is the impact, the shell cracking and the
+  dragon materialising. **Its last frame should be the character's first
+  `idle` frame**, so handing over to the session is seamless.
+
+A character without these folders dives with `dragged`'s drawings and lands
+with `wake`'s.
+
+**The set is complete: 18 folders, 97 frames.** The only state with no drawing
 of its own is `error-api`, and that is deliberate.
 
 ### Notes per state
