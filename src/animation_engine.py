@@ -23,7 +23,10 @@ class AnimationEngine:
 
     def __init__(self, assets_dir: Path, character: str | None = None) -> None:
         self.assets_dir = Path(assets_dir)
-        self._folder = character or self._default_character()
+        # A saved character whose folder is gone (renamed, deleted) would load
+        # no sprites at all and leave an invisible dragon: fall back instead.
+        available = available_characters(self.assets_dir)
+        self._folder = character if character in available else self._default_character()
         self._frames: dict[str, list[QPixmap]] = {}
         self._state = IDLE
         self._resolved = IDLE

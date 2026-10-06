@@ -269,6 +269,18 @@ class TestCharacters(BaseAssets):
         e = self.make_with_characters(cat={"idle": 2})
         self.assertEqual(e.character_name, "cat")
 
+    def test_a_saved_character_is_honoured(self):
+        e = self.make_with_characters(aaa={"idle": 2}, zzz={"idle": 3})
+        self.assertEqual(AnimationEngine(e.assets_dir, "zzz").character, "zzz")
+
+    def test_a_saved_character_that_is_gone_falls_back(self):
+        # config.json remembers a folder that was renamed or deleted: the
+        # dragon must not come up invisible, with no sprites at all.
+        e = self.make_with_characters(aaa={"idle": 2})
+        gone = AnimationEngine(e.assets_dir, "renamed-since")
+        self.assertEqual(gone.character, "aaa")
+        self.assertIn(st.IDLE, gone.available_states())
+
     def test_an_empty_folder_is_not_a_character(self):
         root = self.temp_folder()
         (root / "not_a_character").mkdir()
